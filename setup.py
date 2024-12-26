@@ -1,7 +1,7 @@
 # pip install setuptools twine
 # python setup.py sdist bdist_wheel
 # twine upload --repository testpypi dist/*
-# 'backtrader @ git+https://github.com/WISEPLAT/backtrader.git' - was removed from install_requires, as it can't publish
+# 'backtrader @ git+https://github.com/alimohyudin/backtrader_binance_futures.git' - was removed from install_requires, as it can't publish
 # twine upload --repository pypi dist/*
 import os.path
 import codecs  # To use a consistent encoding
@@ -13,7 +13,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 with codecs.open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
-setup(name='backtrader_binance',
+setup(name='backtrader_binance_futures',
       version='2.0.5',
       author='wiseplat',
       author_email='oshpagin@gmail.com',
@@ -21,7 +21,7 @@ setup(name='backtrader_binance',
       description='Binance API integration with Backtrader',
       long_description=long_description,
       long_description_content_type='text/markdown',
-      url='https://github.com/WISEPLAT/backtrader_binance',
+      url='https://github.com/alimohyudin/backtrader_binance_futures',
       packages=find_packages(exclude=['docs', 'examples', 'ConfigBinance']),
       install_requires=['python-binance', 'backtrader', 'pandas', 'matplotlib'],
       classifiers=[
@@ -47,7 +47,7 @@ setup(name='backtrader_binance',
       ],
       keywords=['trading', 'development'],
       project_urls={
-          'Documentation': 'https://github.com/WISEPLAT/backtrader_binance/blob/master/README.md'
+          'Documentation': 'https://github.com/alimohyudin/backtrader_binance_futures/blob/master/README.md'
       },
       python_requires='>=3.7'
       )
