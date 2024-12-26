@@ -129,25 +129,36 @@ class BinanceStore(object):
 
     @retry
     def get_asset_balance(self, asset):
-        balance = self.binance.get_asset_balance(asset)
-        return float(balance['free']), float(balance['locked'])
+        balance = self.binance.futures_account_balance()
+        
+        """ [{'accountAlias': 'SgSgoCoCmYsRuX', 'asset': 'FDUSD', 'balance': '0.00000000', 'crossWalletBalance': '0.00000000', 'crossUnPnl': '0.00000000', 'availableBalance': '0.00000000', 'maxWithdrawAmount': '0.00000000', 'marginAvailable': True, 'updateTime': 0}, {'accountAlias': 'SgSgoCoCmYsRuX', 'asset': 'BNB', 'balance': '0.00000000', 'crossWalletBalance': '0.00000000', 'crossUnPnl': '0.00000000', 'availableBalance': '0.00000000', 'maxWithdrawAmount': '0.00000000', 'marginAvailable': True, 'updateTime': 0}, {'accountAlias': 'SgSgoCoCmYsRuX', 'asset': 'ETH', 'balance': '0.00000000', 'crossWalletBalance': '0.00000000', 'crossUnPnl': '0.00000000', 'availableBalance': '0.00000000', 'maxWithdrawAmount': '0.00000000', 'marginAvailable': True, 'updateTime': 0}, {'accountAlias': 'SgSgoCoCmYsRuX', 'asset': 'BTC', 'balance': '0.00000000', 'crossWalletBalance': '0.00000000', 'crossUnPnl': '0.00000000', 'availableBalance': '0.00000000', 'maxWithdrawAmount': '0.00000000', 'marginAvailable': True, 'updateTime': 0}, {'accountAlias': 'SgSgoCoCmYsRuX', 'asset': 'USDT', 'balance': '9385.95730535', 'crossWalletBalance': '9385.95730535', 'crossUnPnl': '0.00000000', 'availableBalance': '9385.95730535', 'maxWithdrawAmount': '9385.95730535', 'marginAvailable': True, 'updateTime': 1734614656004}, {'accountAlias': 'SgSgoCoCmYsRuX', 'asset': 'USDC', 'balance': '0.00000000', 'crossWalletBalance': '0.00000000', 'crossUnPnl': '0.00000000', 'availableBalance': '0.00000000', 'maxWithdrawAmount': '0.00000000', 'marginAvailable': True, 'updateTime': 0}] """
+        
+        for bal in balance:
+            if bal['asset'] == asset:
+                return float(bal['availableBalance']), 0.0
+        return 0.0, 0.0
+    
 
     def get_symbol_balance(self, symbol):
         """Get symbol balance in symbol"""
         balance = 0
         try:
             symbol = symbol[0:len(symbol)-len(self.coin_target)]
-            balance = self.binance.get_asset_balance(symbol)
-            balance = float(balance['free'])
+            mybalance = self.binance.futures_account_balance()
+            for bal in mybalance:
+                if bal['asset'] == symbol:
+                    balance = float(bal['availableBalance'])
+                    break
+            
         except Exception as e:
             print("Error:", e)
         return balance, symbol  # float(balance['locked'])
 
     def get_balance(self, ):
         """Balance in USDT for example - in coin target"""
-        free, locked = self.get_asset_balance(self.coin_target)
+        free = self.get_asset_balance(self.coin_target)
         self._cash = free
-        self._value = free + locked
+        self._value = free
 
     def getbroker(self):
         return self._broker

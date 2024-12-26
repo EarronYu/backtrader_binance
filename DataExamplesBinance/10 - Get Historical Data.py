@@ -4,7 +4,7 @@ import pandas as pd
 
 client = Client(Config.BINANCE_API_KEY, Config.BINANCE_API_SECRET)
 
-klines = client.get_historical_klines("BTCUSDT", Client.KLINE_INTERVAL_1DAY, "2023-05-10")
+klines = client.futures_historical_klines("BTCUSDT", Client.KLINE_INTERVAL_1HOUR, start_str="2024-12-22")  # Get historical data
 
 df = pd.DataFrame(klines)
 df.drop(df.columns[[6, 7, 8, 9, 10, 11]], axis=1, inplace=True)  # Remove unnecessary columns

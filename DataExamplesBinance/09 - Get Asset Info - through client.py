@@ -1,7 +1,9 @@
 import backtrader as bt
-from backtrader_binance import BinanceStore
+from backtrader_binance_futures import BinanceStore
 from ConfigBinance.Config import Config
 from decimal import Decimal
+import asyncio
+asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 cerebro = bt.Cerebro(quicknotify=True)
 
@@ -15,35 +17,34 @@ store = BinanceStore(
     api_key=Config.BINANCE_API_KEY,
     api_secret=Config.BINANCE_API_SECRET,
     coin_target=coin_target,
-    testnet=False)  # Binance Storage
+    testnet=True)  # Binance Storage
 
 client = store.binance  # !!!
 
-asset = 'BTC'
+asset = 'USDT'
 
-balance = client.get_asset_balance(asset=asset)
+balance = store.get_asset_info(asset=asset)
+print(f" - Balance for {asset} is {balance}")
 
-print(f" - Balance for {asset} is {balance['free']}")
+# info = client.get_symbol_info('ETHUSDT')
+# print(info)
 
-info = client.get_symbol_info('ETHUSDT')
-print(info)
+# info = client.get_symbol_info('BTCUSDT')
+# print(info)
 
-info = client.get_symbol_info('BTCUSDT')
-print(info)
+# info = client.get_symbol_info('BNBUSDT')
+# print(info)
+# print(info['filters'])
 
-info = client.get_symbol_info('BNBUSDT')
-print(info)
-print(info['filters'])
-
-tickers = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', ]
-info = {}
-for ticker in tickers:
-    info[ticker] = {}
-    for _filter in client.get_symbol_info(ticker)['filters']:
-        if _filter['filterType'] == 'PRICE_FILTER': info[ticker]["minPrice"] = Decimal(_filter['minPrice'])
-        if _filter['filterType'] == 'LOT_SIZE': info[ticker]["minQty"] = Decimal(_filter['minQty'])
-        if _filter['filterType'] == 'LOT_SIZE': info[ticker]["stepSize"] = Decimal(_filter['stepSize'])
-        if _filter['filterType'] == 'LOT_SIZE': info[ticker]["step_num"] = _filter['stepSize'].find('1') - 2
-        if _filter['filterType'] == 'PRICE_FILTER': info[ticker]["f_nums"] = _filter['minPrice'].find('1') - 1
-print(info)
+# tickers = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', ]
+# info = {}
+# for ticker in tickers:
+#     info[ticker] = {}
+#     for _filter in client.get_symbol_info(ticker)['filters']:
+#         if _filter['filterType'] == 'PRICE_FILTER': info[ticker]["minPrice"] = Decimal(_filter['minPrice'])
+#         if _filter['filterType'] == 'LOT_SIZE': info[ticker]["minQty"] = Decimal(_filter['minQty'])
+#         if _filter['filterType'] == 'LOT_SIZE': info[ticker]["stepSize"] = Decimal(_filter['stepSize'])
+#         if _filter['filterType'] == 'LOT_SIZE': info[ticker]["step_num"] = _filter['stepSize'].find('1') - 2
+#         if _filter['filterType'] == 'PRICE_FILTER': info[ticker]["f_nums"] = _filter['minPrice'].find('1') - 1
+# print(info)
 

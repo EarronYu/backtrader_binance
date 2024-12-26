@@ -1,6 +1,6 @@
 import datetime as dt
 import backtrader as bt
-from backtrader_binance import BinanceStore
+from backtrader_binance_futures import BinanceStore
 from ConfigBinance.Config import Config  # Configuration file
 
 
@@ -15,9 +15,12 @@ class RSIStrategy(bt.Strategy):
 
     def __init__(self):
         """Initialization, adding indicators for each ticker"""
+        print("1=======Initialization")
+        
         self.orders = {}  # All orders as a dict, for this particularly trading strategy one ticker is one order
         for d in self.datas:  # Running through all the tickers
             self.orders[d._name] = None  # There is no order for ticker yet
+        print("1=======Initialization")
 
         # creating indicators for each ticker
         self.sma1 = {}
@@ -28,16 +31,18 @@ class RSIStrategy(bt.Strategy):
             self.sma1[ticker] = bt.indicators.SMA(self.datas[i], period=8)  # SMA indicator
             self.sma2[ticker] = bt.indicators.SMA(self.datas[i], period=16)  # SMA indicator
             self.rsi[ticker] = bt.indicators.RSI(self.datas[i], period=14)  # RSI indicator
-
+        print("1=======Initialization")
         self.buy_once = {}
         self.sell_once = {}
 
     def start(self):
+        print("2=======Start")
         for d in self.datas:  # Running through all the tickers
             self.buy_once[d._name] = False
             self.sell_once[d._name] = False
 
     def next(self):
+        print("3=======Next")
         """Arrival of a new ticker candle"""
         for data in self.datas:  # Running through all the requested bars of all tickers
             ticker = data._name
@@ -79,11 +84,12 @@ class RSIStrategy(bt.Strategy):
                     #     self.cancel(order)  # then cancel it
 
                     if not self.buy_once[ticker]:  # Enter long
-                        size = 0.0007  # min value to buy for BTC and ETH
+                        size = 0.0002  # min value to buy for BTC and ETH
                         if data._name == "ETHUSDT": size = 0.007
-                        price = self.broker._store.format_price(ticker, data.close[0] * 1)  # buy at close price
+                        #price = self.broker._store.format_price(ticker, data.close[0] * 1)  # buy at close price
+                        price = round(data.close[0], 0)  # format price to 1 decimal place
                         print(f" - buy {ticker} size = {size} at price = {price}")
-                        self.orders[data._name] = self.buy(data=data, exectype=bt.Order.Limit, price=price, size=size)
+                        self.orders[data._name] = self.buy(data=data, exectype=bt.Order.Market, price=price, size=size)
                         print(f"\t - The order has been submitted {self.orders[data._name].binance_order['orderId']} to buy {data._name}")
 
                         self.buy_once[ticker] = len(self)  # prevent from second buy... writing the number of bar
@@ -127,20 +133,20 @@ if __name__ == '__main__':
     cerebro = bt.Cerebro(quicknotify=True)
 
     coin_target = 'USDT'  # the base ticker in which calculations will be performed
-    symbol = 'ETH' + coin_target  # the ticker by which we will receive data in the format <CodeTickerBaseTicker>
+    symbol = 'BTC' + coin_target  # the ticker by which we will receive data in the format <CodeTickerBaseTicker>
 
     store = BinanceStore(
         api_key=Config.BINANCE_API_KEY,
         api_secret=Config.BINANCE_API_SECRET,
         coin_target=coin_target,
-        testnet=False)  # Binance Storage
+        testnet=Config.TESTNET)  # Binance Storage
 
     # live connection to Binance - for Offline comment these two lines
     broker = store.getbroker()
     cerebro.setbroker(broker)
 
     # Historical 1-minute bars for the last hour + new live bars / timeframe M1
-    from_date = dt.datetime.utcnow() - dt.timedelta(minutes=60)
+    from_date = dt.datetime.now(dt.UTC) - dt.timedelta(minutes=60)
     data = store.getdata(timeframe=bt.TimeFrame.Minutes, compression=1, dataname=symbol, start_date=from_date, LiveBars=True)
 
     cerebro.adddata(data)  # Adding data
@@ -148,4 +154,4 @@ if __name__ == '__main__':
     cerebro.addstrategy(RSIStrategy, coin_target=coin_target)  # Adding a trading system
 
     cerebro.run()  # Launching a trading system
-    cerebro.plot()  # Draw a chart
+    # cerebro.plot()  # Draw a chart

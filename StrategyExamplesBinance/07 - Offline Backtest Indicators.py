@@ -1,6 +1,6 @@
 import datetime as dt
 import backtrader as bt
-from backtrader_binance import BinanceStore
+from backtrader_binance_spot import BinanceStore
 from ConfigBinance.Config import Config  # Configuration file
 
 # video on creating this strategy - on Russian )

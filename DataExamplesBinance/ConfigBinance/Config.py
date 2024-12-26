@@ -6,10 +6,13 @@
 # 5. Copy & Paste here "API Key" and "Secret Key"
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # P.S. If you use my referral link - Thanks a lot))
-# If you liked this software => Put a star on github - https://github.com/WISEPLAT/backtrader_binance
+# If you liked this software => Put a star on github - https://github.com/alimohyudin/backtrader_binance_futures
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 class Config:
-    BINANCE_API_KEY = "YOUR_API_KEY"
-    BINANCE_API_SECRET = "YOUR_SECRET_KEY"
+    BINANCE_API_KEY = os.getenv("BINANCE_API_KEY")
+    BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET")
+    TESTNET = os.getenv("TESTNET") == '1'

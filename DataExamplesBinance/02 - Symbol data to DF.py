@@ -1,7 +1,7 @@
 import datetime as dt
 import backtrader as bt
 import pandas as pd
-from backtrader_binance import BinanceStore
+from backtrader_binance_spot import BinanceStore
 from ConfigBinance.Config import Config  # Configuration file
 
 

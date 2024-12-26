@@ -1,7 +1,7 @@
 import datetime as dt
 import backtrader as bt
 import backtrader.analyzers as btanalyzers
-from backtrader_binance import BinanceStore
+from backtrader_binance_spot import BinanceStore
 from ConfigBinance.Config import Config  # Configuration file
 
 # https://www.backtrader.com/blog/posts/2019-08-29-fractional-sizes/fractional-sizes/
