@@ -46,8 +46,8 @@ class BinanceBroker(BrokerBase):
         self.notifs = deque()
         self.positions = defaultdict(Position)
 
-        self.startingcash = self.cash = 0  # Стартовые и текущие свободные средства по счету
-        self.startingvalue = self.value = 0  # Стартовая и текущая стоимость позиций
+        self.startingcash = self.cash = 0 
+        self.startingvalue = self.value = 0
 
         self.open_orders = list()
     
@@ -150,6 +150,9 @@ class BinanceBroker(BrokerBase):
         order_id = order.binance_order['orderId']
         symbol = order.binance_order['symbol']
         self._store.cancel_order(symbol=symbol, order_id=order_id)
+        
+    def close(self):
+        self._store.close()
         
     def format_price(self, value):
         return self._store.format_price(value)

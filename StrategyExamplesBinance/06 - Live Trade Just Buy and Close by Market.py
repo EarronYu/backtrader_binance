@@ -15,12 +15,10 @@ class RSIStrategy(bt.Strategy):
 
     def __init__(self):
         """Initialization, adding indicators for each ticker"""
-        print("1=======Initialization")
         
         self.orders = {}  # All orders as a dict, for this particularly trading strategy one ticker is one order
         for d in self.datas:  # Running through all the tickers
             self.orders[d._name] = None  # There is no order for ticker yet
-        print("1=======Initialization")
 
         # creating indicators for each ticker
         self.sma1 = {}
@@ -31,18 +29,19 @@ class RSIStrategy(bt.Strategy):
             self.sma1[ticker] = bt.indicators.SMA(self.datas[i], period=8)  # SMA indicator
             self.sma2[ticker] = bt.indicators.SMA(self.datas[i], period=16)  # SMA indicator
             self.rsi[ticker] = bt.indicators.RSI(self.datas[i], period=14)  # RSI indicator
-        print("1=======Initialization")
         self.buy_once = {}
         self.sell_once = {}
+        self.bought = False
+        
+        print("1=======Init")
 
     def start(self):
-        print("2=======Start")
         for d in self.datas:  # Running through all the tickers
             self.buy_once[d._name] = False
             self.sell_once[d._name] = False
 
     def next(self):
-        print("3=======Next")
+        # print("3=======Next")
         """Arrival of a new ticker candle"""
         for data in self.datas:  # Running through all the requested bars of all tickers
             ticker = data._name
@@ -53,56 +52,60 @@ class RSIStrategy(bt.Strategy):
                 if status: _state = "False - History data"
                 else: _state = "True - Live data"
 
-                print('{} / {} [{}] - Open: {}, High: {}, Low: {}, Close: {}, Volume: {} - Live: {}'.format(
-                    bt.num2date(data.datetime[0]),
-                    data._name,
-                    _interval,  # ticker timeframe
-                    data.open[0],
-                    data.high[0],
-                    data.low[0],
-                    data.close[0],
-                    data.volume[0],
-                    _state,
-                ))
-                print(f'\t - {ticker} RSI : {self.rsi[ticker][0]}')
+                # print('{} / {} [{}] - Open: {}, High: {}, Low: {}, Close: {}, Volume: {} - Live: {}'.format(
+                #     bt.num2date(data.datetime[0]),
+                #     data._name,
+                #     _interval,  # ticker timeframe
+                #     data.open[0],
+                #     data.high[0],
+                #     data.low[0],
+                #     data.close[0],
+                #     data.volume[0],
+                #     _state,
+                # ))
+                # print(f'\t - {ticker} RSI : {self.rsi[ticker][0]}')
 
-                if status != 0: continue  # if not live - do not enter to position!
+                # if status != 0: continue  # if not live - do not enter to position!
 
-                coin_target = self.p.coin_target
-                print(f"\t - Free balance: {self.broker.getcash()} {coin_target}")
+                # coin_target = self.p.coin_target
+                # print(f"\t - Free balance: {self.broker.getcash()} {coin_target}")
 
                 # Very slow function! Because we are going through API to get those values...
                 symbol_balance, short_symbol_name = self.broker._store.get_symbol_balance(ticker)
                 print(f"\t - {ticker} current balance = {symbol_balance} {short_symbol_name}")
+                print(f'\t - {ticker} Price : {self.rsi[ticker][0]}')
 
                 order = self.orders[data._name]  # The order of ticker
                 if order and order.status == bt.Order.Submitted:  # If the order is not on the exchange (sent to the broker)
                     return  # then we are waiting for the order to be placed on the exchange, we leave, we do not continue further
-                if not self.getposition(data):  # If there is no position
-                    # if order and order.status == bt.Order.Accepted:  # If the order is on the exchange (accepted by the broker)
-                    #     print(f"\t - Cancel the order {order.binance_order['orderId']} to buy {data._name}")
-                    #     self.cancel(order)  # then cancel it
+                
+                # print(f"\t - {ticker} position = {self.getposition(data)}")
+                
+                # if not self.getposition(data):
 
-                    if not self.buy_once[ticker]:  # Enter long
-                        size = 0.002  # min value to buy for BTC and ETH
-                        if data._name == "ETHUSDT": size = 0.007
-                        #price = self.broker._store.format_price(ticker, data.close[0] * 1)  # buy at close price
-                        price = round(data.close[0], 0)  # format price to 1 decimal place
-                        print(f" - buy {ticker} size = {size} at price = {price}")
-                        self.orders[data._name] = self.buy(data=data, exectype=bt.Order.Market, price=price, size=size)
-                        print(f"\t - The order has been submitted {self.orders[data._name].binance_order['orderId']} to buy {data._name}")
+                #     if not self.buy_once[ticker]:  # Enter long
+                #         size = 0.002  # min value to buy for BTC and ETH
+                #         if data._name == "ETHUSDT": size = 0.007
+                #         #price = self.broker._store.format_price(ticker, data.close[0] * 1)  # buy at close price
+                #         price = round(data.close[0], 0)  # format price to 1 decimal place
+                #         print(f" - buy {ticker} size = {size} at price = {price}")
+                #         self.orders[data._name] = self.buy(data=data, exectype=bt.Order.Market, price=price, size=size)
+                #         print(f"\t - The order has been submitted {self.orders[data._name].binance_order['orderId']} to buy {data._name}")
 
-                        self.buy_once[ticker] = len(self)  # prevent from second buy... writing the number of bar
+                #         self.buy_once[ticker] = len(self)  # prevent from second buy... writing the number of bar
+                #         self.bought = True
+                # if self.bought:
+                #     self.close()  # close position
 
-                else:  # If there is a position
-                    print(self.sell_once[ticker], self.buy_once[ticker], len(self), len(self) > self.buy_once[ticker] + 3)
-                    if not self.sell_once[ticker]:  # if we are selling first time
-                        if self.buy_once[ticker] and len(self) > self.buy_once[ticker] + 3:  # if we have position sell after 3 bars by market
-                            print("sell")
-                            print(f"\t - Sell it by the market {data._name}...")
-                            self.orders[data._name] = self.close()  # Request to close a position at the market price
+                # else:  # If there is a position
+                    # print(self.sell_once[ticker], self.buy_once[ticker], len(self), len(self) > self.buy_once[ticker] + 3)
+                    # if not self.sell_once[ticker]:  # if we are selling first time
+                    #     if self.buy_once[ticker] and len(self) > self.buy_once[ticker] + 3:  # if we have position sell after 3 bars by market
+                    #         print("sell")
+                    #         print(f"\t - Sell it by the market {data._name}...")
+                    #         self.orders[data._name] = self.close()  # Request to close a position at the market price
 
-                            self.sell_once[ticker] = True  # to prevent sell second time
+                    #         self.sell_once[ticker] = True  # to prevent sell second time
 
     def notify_order(self, order):
         """Changing the status of the order"""
@@ -146,7 +149,7 @@ if __name__ == '__main__':
     cerebro.setbroker(broker)
 
     # Historical 1-minute bars for the last hour + new live bars / timeframe M1
-    from_date = dt.datetime.now(dt.UTC) - dt.timedelta(minutes=60)
+    from_date = dt.datetime.now(dt.UTC) - dt.timedelta(minutes=10)
     data = store.getdata(timeframe=bt.TimeFrame.Minutes, compression=1, dataname=symbol, start_date=from_date, LiveBars=True)
 
     cerebro.adddata(data)  # Adding data

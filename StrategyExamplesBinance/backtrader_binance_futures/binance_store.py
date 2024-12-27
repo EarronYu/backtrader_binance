@@ -120,6 +120,20 @@ class BinanceStore(object):
             quantity=self.format_quantity(symbol, size),
             **params)
 
+    @retry
+    def close(self):
+        print(2222, "close_all_positions")
+        positions = self.binance.futures_position_information()
+        for position in positions:
+            if float(position['positionAmt']) != 0:
+                side = SIDE_SELL if float(position['positionAmt']) > 0 else SIDE_BUY
+                self.create_order(
+                    symbol=position['symbol'],
+                    side=side,
+                    type=ORDER_TYPE_MARKET,
+                    size=abs(float(position['positionAmt'])),
+                    price=None
+                )
     def format_price(self, symbol, price):
         return self._format_value(price, self._tick_size[symbol])
     
