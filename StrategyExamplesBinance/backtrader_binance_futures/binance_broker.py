@@ -1,4 +1,5 @@
 import datetime as dt
+import threading
 
 from collections import defaultdict, deque
 from math import copysign
@@ -52,15 +53,17 @@ class BinanceBroker(BrokerBase):
         self.open_orders = list()
     
         self._store = store
-        self._store.binance_socket.start_user_socket(self._handle_user_socket_message)
+        self._store.binance_socket.start_futures_user_socket(self._handle_user_socket_message)
+        self._order_condition = threading.Condition()
+        self._order_status = {}
 
     def start(self):
         self.startingcash = self.cash = self.getcash()  # Стартовые и текущие свободные средства по счету. Подписка на позиции для портфеля/биржи
         self.startingvalue = self.value = self.getvalue()  # Стартовая и текущая стоимость позиций
 
     def _execute_order(self, order, date, executed_size, executed_price, executed_value, executed_comm):
-        print("order data")
-        print(order.data)
+        # print("order data")
+        # print(order.data)
         order.execute(
             date,
             executed_size,
@@ -74,31 +77,40 @@ class BinanceBroker(BrokerBase):
 
     def _handle_user_socket_message(self, msg):
         """https://binance-docs.github.io/apidocs/spot/en/#payload-order-update"""
-        # print(msg)
-        # {'e': 'executionReport', 'E': 1707120960762, 's': 'ETHUSDT', 'c': 'oVoRofmTTXJCqnGNuvcuEu', 'S': 'BUY', 'o': 'MARKET', 'f': 'GTC', 'q': '0.00220000', 'p': '0.00000000', 'P': '0.00000000', 'F': '0.00000000', 'g': -1, 'C': '', 'x': 'NEW', 'X': 'NEW', 'r': 'NONE', 'i': 15859894465, 'l': '0.00000000', 'z': '0.00000000', 'L': '0.00000000', 'n': '0', 'N': None, 'T': 1707120960761, 't': -1, 'I': 33028455024, 'w': True, 'm': False, 'M': False, 'O': 1707120960761, 'Z': '0.00000000', 'Y': '0.00000000', 'Q': '0.00000000', 'W': 1707120960761, 'V': 'EXPIRE_MAKER'}
+        # print(5555, msg)
+        #{'e': 'ORDER_TRADE_UPDATE', 'T': 1735320380465, 'E': 1735320380471, 'o': {'s': 'BTCUSDT', 'c': 'x-Cb7ytekJc78682727188d656ceb524', 'S': 'BUY', 'o': 'MARKET', 'f': 'GTC', 'q': '0.002', 'p': '0', 'ap': '0', 'sp': '0', 'x': 'NEW', 'X': 'NEW', 'i': 4073226536, 'l': '0', 'z': '0', 'L': '0', 'n': '0', 'N': 'USDT', 'T': 1735320380465, 't': 0, 'b': '0', 'a': '0', 'm': False, 'R': False, 'wt': 'CONTRACT_PRICE', 'ot': 'MARKET', 'ps': 'BOTH', 'cp': False, 'rp': '0', 'pP': False, 'si': 0, 'ss': 0, 'V': 'NONE', 'pm': 'NONE', 'gtd': 0}}
 
-        # {'e': 'executionReport', 'E': 1707120960762, 's': 'ETHUSDT', 'c': 'oVoRofmTTXJCqnGNuvcuEu', 'S': 'BUY', 'o': 'MARKET', 'f': 'GTC', 'q': '0.00220000', 'p': '0.00000000', 'P': '0.00000000', 'F': '0.00000000', 'g': -1, 'C': '',
-        # 'x': 'TRADE', 'X': 'FILLED', 'r': 'NONE', 'i': 15859894465, 'l': '0.00220000', 'z': '0.00220000', 'L': '2319.53000000', 'n': '0.00000220', 'N': 'ETH', 'T': 1707120960761, 't': 1297224255, 'I': 33028455025, 'w': False,
-        # 'm': False, 'M': True, 'O': 1707120960761, 'Z': '5.10296600', 'Y': '5.10296600', 'Q': '0.00000000', 'W': 1707120960761, 'V': 'EXPIRE_MAKER'}
-        if msg['e'] == 'executionReport':
-            if msg['s'] in self._store.symbols:
+        # {'e': 'ORDER_TRADE_UPDATE', 'T': 1735320870042, 'E': 1735320870048, 'o': {'s': 'BTCUSDT', 'c': 'x-Cb7ytekJ1953676356434b1f9c7e7a', 'S': 'BUY', 'o': 'MARKET', 'f': 'GTC', 'q': '0.002', 'p': '0', 'ap': '98010', 'sp': '0', 'x': 'TRADE', 'X': 'FILLED', 'i': 4073228429, 'l': '0.002', 'z': '0.002', 'L': '98010', 'n': '0.07840800', 'N': 'USDT', 'T': 1735320870042, 't': 293934075, 'b': '0', 'a': '0', 'm': False, 'R': False, 'wt': 'CONTRACT_PRICE', 'ot': 'MARKET', 'ps': 'BOTH', 'cp': False, 'rp': '0', 'pP': False, 'si': 0, 'ss': 0, 'V': 'NONE', 'pm': 'NONE', 'gtd': 0}}
+
+        if msg['e'] == 'ORDER_TRADE_UPDATE':
+            # print(6666, msg)
+            if msg['o']['s'] in self._store.symbols:
+                # print(7777, msg)
+                # print(77777, self.open_orders)
+                
+                with self._order_condition:
+                    self._order_condition.wait_for(lambda: msg['o']['i'] in self._order_status)
+                # print(77778, self.open_orders)
+                
                 for o in self.open_orders:
-                    if o.binance_order['orderId'] == msg['i']:
-                        if msg['X'] in [ORDER_STATUS_FILLED, ORDER_STATUS_PARTIALLY_FILLED]:
-                            _dt = dt.datetime.fromtimestamp(int(msg['T']) / 1000)
-                            executed_size = float(msg['l'])
-                            executed_price = float(msg['L'])
-                            executed_value = float(msg['Z'])
-                            executed_comm = float(msg['n'])
-                            # print(_dt, executed_size, executed_price)
+                    # print(8888, o)
+                    if o.binance_order['orderId'] == msg['o']['i']:
+                        if msg['o']['X'] in [ORDER_STATUS_FILLED, ORDER_STATUS_PARTIALLY_FILLED]:
+                            _dt = dt.datetime.fromtimestamp(int(msg['o']['T']) / 1000)
+                            executed_size = float(msg['o']['l'])
+                            executed_price = float(msg['o']['L'])
+                            executed_value = float(executed_price) * float(executed_size)
+                            executed_comm = float(msg['o']['n'])
+                            print(_dt, executed_size, executed_price)
                             self._execute_order(o, _dt, executed_size, executed_price, executed_value, executed_comm)
-                        self._set_order_status(o, msg['X'])
+                        self._set_order_status(o, msg['o']['X'])
 
                         if o.status not in [Order.Accepted, Order.Partial]:
                             self.open_orders.remove(o)
                         self.notify(o)
         elif msg['e'] == 'error':
             raise msg
+        
     
     def _set_order_status(self, order, binance_order_status):
         if binance_order_status == ORDER_STATUS_CANCELED:
@@ -113,12 +125,18 @@ class BinanceBroker(BrokerBase):
             order.reject()
 
     def _submit(self, owner, data, side, exectype, size, price):
-        print(1111, owner, data, side, exectype, size, price)
+        # print(1111, owner, data, side, exectype, size, price)
         type = self._ORDER_TYPES.get(exectype, ORDER_TYPE_MARKET)
         symbol = data._name
         binance_order = self._store.create_order(symbol, side, type, size, price)
-        print(1111, binance_order)
-        # 1111 {'symbol': 'ETHUSDT', 'orderId': 15860400971, 'orderListId': -1, 'clientOrderId': 'EO7lLPcYNZR8cNEg8AOEPb', 'transactTime': 1707124560731, 'price': '0.00000000', 'origQty': '0.00220000', 'executedQty': '0.00220000', 'cummulativeQuoteQty': '5.10356000', 'status': 'FILLED', 'timeInForce': 'GTC', 'type': 'MARKET', 'side': 'BUY', 'workingTime': 1707124560731, 'fills': [{'price': '2319.80000000', 'qty': '0.00220000', 'commission': '0.00000220', 'commissionAsset': 'ETH', 'tradeId': 1297261843}], 'selfTradePreventionMode': 'EXPIRE_MAKER'}
+        # print(22222, binance_order)
+
+        # print(3333, self._order_status)
+        order_id = binance_order['orderId']
+        
+
+        # print(3333, self._order_status)
+        # binance_order = self._order_status[order_id]
         order = BinanceOrder(owner, data, exectype, binance_order)
         if binance_order['status'] in [ORDER_STATUS_FILLED, ORDER_STATUS_PARTIALLY_FILLED]:
             avg_price =0.0
@@ -138,6 +156,16 @@ class BinanceBroker(BrokerBase):
         if order.status == Order.Accepted:
             self.open_orders.append(order)
         self.notify(order)
+        
+
+        # this is for when we need to allow thread to move on
+        with self._order_condition:
+            self._order_status[order_id] = order_id
+            self._order_condition.notify_all()
+        # print(4444, "allow thread to move on")
+        #this is for when we need to wait for a condition to be filled somewhere else
+        # with self._order_condition:
+        #     self._order_condition.wait_for(lambda: order_id in self._order_status)
         return order
 
     def buy(self, owner, data, size, price=None, plimit=None,

@@ -37,11 +37,13 @@ class BinanceData(DataBase):
 
     def _handle_kline_socket_message(self, msg):
         """https://binance-docs.github.io/apidocs/spot/en/#kline-candlestick-streams"""
-        if msg['e'] == 'kline':
+        
+        if 'kline' in msg['e']:
             if msg['k']['x']:  # Is closed
+                print("Kline closed")
                 kline = self._parser_to_kline(msg['k']['t'], msg['k'])
                 self._data.extend(kline.values.tolist())
-        elif msg['e'] == 'error':
+        elif 'error' in msg['e']:
             raise msg
 
     def _load(self):
@@ -96,7 +98,7 @@ class BinanceData(DataBase):
 
             print(f"Live started for ticker: {self.symbol}")
 
-            self._store.binance_socket.start_kline_socket(
+            self._store.binance_socket.start_kline_futures_socket(
                 self._handle_kline_socket_message,
                 self.symbol_info['symbol'],
                 self.interval)
@@ -111,7 +113,7 @@ class BinanceData(DataBase):
         
     def start(self):
         DataBase.start(self)
-        print("Start")
+        # print("Start")
         self.interval = self._store.get_interval(self.timeframe, self.compression)
         if self.interval is None:
             self._state = self._ST_OVER
@@ -142,7 +144,7 @@ class BinanceData(DataBase):
                 df.drop(df.columns[[6, 7, 8, 9, 10, 11]], axis=1, inplace=True)  # Remove unnecessary columns
                 df = self._parser_dataframe(df)
                 self._data.extend(df.values.tolist())
-                print("all good")
+                # print("all good")
             except Exception as e:
                 print("Exception (try set start_date in utc format):", e)
 
