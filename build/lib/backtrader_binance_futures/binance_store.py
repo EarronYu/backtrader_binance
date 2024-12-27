@@ -81,14 +81,14 @@ class BinanceStore(object):
 
     @retry
     def cancel_open_orders(self, symbol):
-        orders = self.binance.get_open_orders(symbol=symbol)
+        orders = self.binance.futures_get_open_orders(symbol=symbol)
         if len(orders) > 0:
             self.binance._request_api('delete', 'openOrders', signed=True, data={ 'symbol': symbol })
 
     @retry
     def cancel_order(self, symbol, order_id):
         try:
-            self.binance.cancel_order(symbol=symbol, orderId=order_id)
+            self.binance.futures_cancel_order(symbol=symbol, orderId=order_id)
         except BinanceAPIException as api_err:
             if api_err.code == -2011:  # Order filled
                 return
@@ -112,15 +112,28 @@ class BinanceStore(object):
             params.update({
                 'price': self.format_price(symbol, price)
             })
-
-        return self.binance.create_order(
+        print(f"create_order: {symbol} {side} {type} {size} {price}")
+        return self.binance.futures_create_order(
             symbol=symbol,
             side=side,
             type=type,
             quantity=self.format_quantity(symbol, size),
-            newOrderRespType='RESULT',
             **params)
 
+    @retry
+    def close(self):
+        print(2222, "close_all_positions")
+        positions = self.binance.futures_position_information()
+        for position in positions:
+            if float(position['positionAmt']) != 0:
+                side = SIDE_SELL if float(position['positionAmt']) > 0 else SIDE_BUY
+                self.create_order(
+                    symbol=position['symbol'],
+                    side=side,
+                    type=ORDER_TYPE_MARKET,
+                    size=abs(float(position['positionAmt'])),
+                    price=None
+                )
     def format_price(self, symbol, price):
         return self._format_value(price, self._tick_size[symbol])
     
@@ -135,9 +148,8 @@ class BinanceStore(object):
         
         for bal in balance:
             if bal['asset'] == asset:
-                return float(bal['availableBalance']), 0.0
-        return 0.0, 0.0
-    
+                return float(bal['availableBalance'])
+        return 0.0
 
     def get_symbol_balance(self, symbol):
         """Get symbol balance in symbol"""
@@ -188,7 +200,11 @@ class BinanceStore(object):
 
     @retry
     def get_symbol_info(self, symbol):
-        return self.binance.get_symbol_info(symbol)
+        exchange_info = self.binance.futures_exchange_info()
+        for s in exchange_info['symbols']:
+            if s['symbol'] == symbol:
+                return s
+        return None
 
     def stop_socket(self):
         self.binance_socket.stop()

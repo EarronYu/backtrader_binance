@@ -40,7 +40,7 @@ class BinanceData(DataBase):
         
         if 'kline' in msg['e']:
             if msg['k']['x']:  # Is closed
-                print("Kline closed")
+                # print("Kline closed")
                 kline = self._parser_to_kline(msg['k']['t'], msg['k'])
                 self._data.extend(kline.values.tolist())
         elif 'error' in msg['e']:

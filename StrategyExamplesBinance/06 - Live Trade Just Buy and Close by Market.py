@@ -81,14 +81,9 @@ class RSIStrategy(bt.Strategy):
                 if not self.getposition(data):
 
                     if not self.buy_once[ticker]:  # Enter long
-                        size = 0.002  # min value to buy for BTC and ETH
-                        if data._name == "ETHUSDT": size = 0.007
-                        #price = self.broker._store.format_price(ticker, data.close[0] * 1)  # buy at close price
-                        price = round(data.close[0], 0)  # format price to 1 decimal place
-                        print(f" - buy {ticker} size = {size} at price = {price}")
-                        self.orders[data._name] = self.buy(data=data, exectype=bt.Order.Market, price=price, size=size)
-                        print(f"\t - The order has been submitted {self.orders[data._name].binance_order['orderId']} to buy {data._name}")
-
+                        print(f"\t - Buy it by the market {data._name}... {(self.broker.getcash()-10)} - {self.data.close[0]}")
+                        self.orders[data._name] = self.buy(size=(self.broker.getcash()-10) / self.data.close[0])
+                        
                         self.buy_once[ticker] = len(self)  # prevent from second buy... writing the number of bar
                         # self.bought = True
                 if self.bought:
@@ -116,10 +111,9 @@ class RSIStrategy(bt.Strategy):
                 print("Buy order completed")
                 print(self.orders[data._name].binance_order)  # order.executed.price, order.executed.value, order.executed.comm - you can get from here
                 self.log(f'Buy {order_data_name} @{order.executed.price:.2f}, Price {order.executed.value:.2f}, Commission {order.executed.comm:.2f}')
-                self.bought = True
+                # self.bought = True
             else:  # The order to sell
                 print("Sell order completed")
-                print(self.orders[data._name].binance_order)  # order.executed.price, order.executed.value, order.executed.comm - you can get from here
                 self.log(f'Sell {order_data_name} @{order.executed.price:.2f}, Price {order.executed.value:.2f}, Commission {order.executed.comm:.2f}')
                 self.orders[order_data_name] = None  # Reset the order to enter the position - in case of linked buy
             # self.orders[order_data_name] = None  # Reset the order to enter the position
