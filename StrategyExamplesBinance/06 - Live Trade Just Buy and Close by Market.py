@@ -84,7 +84,7 @@ class RSIStrategy(bt.Strategy):
                     #     self.cancel(order)  # then cancel it
 
                     if not self.buy_once[ticker]:  # Enter long
-                        size = 0.0002  # min value to buy for BTC and ETH
+                        size = 0.002  # min value to buy for BTC and ETH
                         if data._name == "ETHUSDT": size = 0.007
                         #price = self.broker._store.format_price(ticker, data.close[0] * 1)  # buy at close price
                         price = round(data.close[0], 0)  # format price to 1 decimal place

@@ -61,4 +61,31 @@ quantity_precision, price_precision = get_symbol_precision(symbol)
 quantity = round(quantity, quantity_precision)
 price = round(price, price_precision)
 
-place_futures_order(symbol, side, order_type, quantity, price)
+# place_futures_order(symbol, side, order_type, quantity, price)
+
+def close_all_positions():
+    try:
+        positions = client.futures_position_information()
+        print("Closing all positions")
+        print(positions)
+        for position in positions:
+            if float(position['positionAmt']) != 0:
+                symbol = position['symbol']
+                side = 'SELL' if float(position['positionAmt']) > 0 else 'BUY'
+                quantity = abs(float(position['positionAmt']))
+                quantity_precision, _ = get_symbol_precision(symbol)
+                quantity = round(quantity, quantity_precision)
+                print(f"Closing position for {symbol}")
+                print(f"Quantity: {quantity}")
+                client.futures_create_order(
+                    symbol=symbol,
+                    side=side,
+                    type='MARKET',
+                    quantity=quantity
+                )
+                print(f"Closed position for {symbol}")
+    except Exception as e:
+        print("An error occurred while closing positions:", e)
+
+# Close all open positions
+close_all_positions()
