@@ -1,4 +1,0 @@
-python-binance
-backtrader
-pandas
-matplotlib
