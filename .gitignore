@@ -1,1 +1,4 @@
 .env
+backtrader_binance_futures.egg-info/
+build/
+dist/
