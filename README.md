@@ -1,4 +1,4 @@
-# backtrader_binance
+# backtrader_binance_futures
 Binance API integration with [Backtrader](https://github.com/mementum/backtrader).
 
 With this integration you can do:
@@ -17,7 +17,7 @@ or by [**Binance**](https://accounts.binance.com/register?ref=200640624 ) **ID**
 ## Installation
 1) The simplest way:
 ```shell
-pip install backtrader_binance
+pip install backtrader_binance_futures
 ```
 or
 ```shell
@@ -176,7 +176,7 @@ Error correction, revision and development of the library is carried out by the 
 **Push your commits!**
 
 ## Terms of Use
-The backtrader_binance library, which allows you to integrate Backtrader and Binance API, is the **Program** created solely for the convenience of work.
+The backtrader_binance_futures library, which allows you to integrate Backtrader and Binance API, is the **Program** created solely for the convenience of work.
 When using the **Program**, the User is obliged to comply with the provisions of the current legislation of his country.
 Using the **Program** are offered on an "AS IS" basis. No guarantees, either oral or written, are attached and are not provided.
 The author and the community does not guarantee that all errors of the **Program** have been eliminated, respectively, the author and the community do not bear any responsibility for
