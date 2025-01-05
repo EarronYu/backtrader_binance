@@ -31,6 +31,8 @@ class BinanceData(DataBase):
         if 'LiveBars' in kwargs: self.LiveBars = kwargs['LiveBars']
 
         self._store = store
+        self.local = kwargs.get('local', False)
+        self.datapath = kwargs.get('datapath', None)
         self._data = deque()
 
         # print("Ok", self.timeframe, self.compression, self.start_date, self._store, self.LiveBars, self.symbol)
@@ -71,6 +73,25 @@ class BinanceData(DataBase):
         self.lines.volume[0] = volume
         return True
     
+    def _load_data(self):
+        if self.local:
+            # 从本地文件加载数据
+            if not self.datapath:
+                raise ValueError("需要提供本地数据文件路径")
+            return self._load_local_data()
+        else:
+            # 从Binance API加载数据
+            return self._load_binance_data()
+
+    def _load_local_data(self):
+        # 实现从本地文件读取数据的逻辑
+        # 假设数据格式与Binance API返回的格式相同
+        import pandas as pd
+        
+        df = pd.read_csv(self.datapath)
+        # 确保数据格式与Binance API返回的格式一致
+        return df.to_dict('records')
+
     def _parser_dataframe(self, data):
         df = data.copy()
         df.columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume']

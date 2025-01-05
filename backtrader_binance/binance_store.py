@@ -160,6 +160,82 @@ class BinanceStore(object):
         if symbol not in self._datas:
             self._datas[f"{symbol}{tf}"] = BinanceData(store=self, **kwargs)  # timeframe=timeframe, compression=compression, start_date=start_date, LiveBars=LiveBars
         return self._datas[f"{symbol}{tf}"]
+    
+    def prepare_local_data(self, symbol, start_date, end_date, datapath='D:/CryptoData/data/spot'):
+        """合并指定日期范围内的数据文件"""
+        import pandas as pd
+        import datetime
+        import os
+        
+        if end_date is None:
+            end_date = datetime.datetime.now()
+        
+        current_date = start_date.date()
+        end_date = end_date.date()
+        merged_data = pd.DataFrame()
+        
+        while current_date <= end_date:
+            date_str = current_date.strftime('%Y-%m-%d')
+            file_path = os.path.join(datapath, date_str, f"{symbol}.csv")
+            
+            try:
+                df = pd.read_csv(file_path)
+                if 'datetime' not in df.columns and 'candle_begin_time' in df.columns:
+                    df['datetime'] = pd.to_datetime(df['candle_begin_time'])
+                    df.drop('candle_begin_time', axis=1, inplace=True)
+                else:
+                    df['datetime'] = pd.to_datetime(df['datetime'])
+                
+                df.set_index('datetime', inplace=True)
+                merged_data = pd.concat([merged_data, df])
+                
+            except FileNotFoundError:
+                print(f"警告: 未找到数据文件 {file_path}")
+            except Exception as e:
+                print(f"处理 {date_str} 数据时出错: {str(e)}")
+            
+            current_date += datetime.timedelta(days=1)
+        
+        if merged_data.empty:
+            raise ValueError(f"在指定日期范围内未找到任何数据: {start_date} 到 {end_date}")
+        
+        # 排序并删除重复数据
+        merged_data = merged_data.sort_index()
+        merged_data = merged_data[~merged_data.index.duplicated(keep='first')]
+        
+        # 保存合并后的数据
+        output_dir = os.path.join(datapath, 'merged')
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, f"{symbol}_{start_date.date()}_{end_date.date()}.csv")
+        merged_data.to_csv(output_path)
+        
+        return output_path
+
+    def getlocaldata(self, **kwargs):
+        symbol = kwargs['dataname']
+        tf = self.get_interval(kwargs['timeframe'], kwargs['compression'])
+        self.symbols.append(symbol)
+        self.get_filters(symbol=symbol)
+        
+        try:
+            local_data_path = self.prepare_local_data(
+                symbol=symbol,
+                start_date=kwargs.get('start_date'),
+                end_date=kwargs.get('end_date'),  # 添加end_date参数
+                datapath=kwargs.get('datapath', 'D:/CryptoData/data/spot')  # 可选的datapath参数
+            )
+            
+            kwargs.update({
+                'datapath': local_data_path,
+                'local': True
+            })
+            
+            if symbol not in self._datas:
+                self._datas[f"{symbol}{tf}"] = BinanceData(store=self, **kwargs)
+            return self._datas[f"{symbol}{tf}"]
+        except Exception as e:
+            print(f"读取本地数据失败: {str(e)}")
+            return None
         
     def get_filters(self, symbol):
         symbol_info = self.get_symbol_info(symbol)
