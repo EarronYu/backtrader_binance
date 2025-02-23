@@ -44,7 +44,7 @@ class ConnorsReversal(bt.Strategy):
         self.initialized = False
         
         # 调试信息
-        self.debug_mode = True
+        self.debug_mode = False
 
     def log(self, txt, dt=None, debug=False):
         if debug and not self.debug_mode:

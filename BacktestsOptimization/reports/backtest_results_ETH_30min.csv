@@ -1,0 +1,6 @@
+Symbol,Timeframe,Score,Parameters
+ETH,30min,-1000,"{'lowest_point_bars': 20, 'rsi_length': 10, 'sell_barrier': 75, 'dca_parts': 6}"
+ETH,30min,-1000,"{'lowest_point_bars': 20, 'rsi_length': 10, 'sell_barrier': 75, 'dca_parts': 6}"
+ETH,30min,-1000,"{'lowest_point_bars': 20, 'rsi_length': 10, 'sell_barrier': 75, 'dca_parts': 6}"
+ETH,30min,-1000,"{'lowest_point_bars': 20, 'rsi_length': 10, 'sell_barrier': 75, 'dca_parts': 6}"
+ETH,30min,-1000,"{'lowest_point_bars': 20, 'rsi_length': 10, 'sell_barrier': 75, 'dca_parts': 6}"
