@@ -1,6 +1,7 @@
 Symbol,Timeframe,Score,Parameters
-ETH,1min,-1000,"{'lowest_point_bars': 20, 'rsi_length': 10, 'sell_barrier': 75, 'dca_parts': 6}"
-ETH,1min,-1000,"{'lowest_point_bars': 20, 'rsi_length': 10, 'sell_barrier': 75, 'dca_parts': 6}"
-ETH,1min,-1000,"{'lowest_point_bars': 20, 'rsi_length': 10, 'sell_barrier': 75, 'dca_parts': 6}"
-ETH,1min,-1000,"{'lowest_point_bars': 20, 'rsi_length': 10, 'sell_barrier': 75, 'dca_parts': 6}"
-ETH,1min,-1000,"{'lowest_point_bars': 20, 'rsi_length': 10, 'sell_barrier': 75, 'dca_parts': 6}"
+ETH,1min,-1000.0,"{'lowest_point_bars': 20, 'rsi_length': 10, 'sell_barrier': 75, 'dca_parts': 6}"
+ETH,1min,-1000.0,"{'lowest_point_bars': 20, 'rsi_length': 10, 'sell_barrier': 75, 'dca_parts': 6}"
+ETH,1min,-1000.0,"{'lowest_point_bars': 20, 'rsi_length': 10, 'sell_barrier': 75, 'dca_parts': 6}"
+ETH,1min,-1000.0,"{'lowest_point_bars': 20, 'rsi_length': 10, 'sell_barrier': 75, 'dca_parts': 6}"
+ETH,1min,-1000.0,"{'lowest_point_bars': 20, 'rsi_length': 10, 'sell_barrier': 75, 'dca_parts': 6}"
+ETH,1min,21.911972360472888,"{'lowest_point_bars': 20, 'rsi_length': 10, 'sell_barrier': 75, 'dca_parts': 6}"

@@ -128,7 +128,7 @@ class ConnorsReversal(bt.Strategy):
             if self.position and self.rsi[0] > self.p.sell_barrier:
                 self.close()
                 self.open_trades = 0
-                self.log(f"卖出信号 - RSI: {self.rsi[0]:.2f}")
+                # self.log(f"卖出信号 - RSI: {self.rsi[0]:.2f}")
                 return
                 
             if is_lowest:
@@ -154,12 +154,12 @@ class ConnorsReversal(bt.Strategy):
                         if size > 0:
                             self.buy(size=size)
                             self.open_trades += 1
-                            self.log(f'买入: 价格={current_price:.2f}, 数量={size:.2f}, 加仓次数={self.open_trades}')
+                            # self.log(f'买入: 价格={current_price:.2f}, 数量={size:.2f}, 加仓次数={self.open_trades}')
                             
         except Exception as e:
             self.log(f'策略执行错误: {str(e)}')
             return
 
-    def notify_trade(self, trade):
-        if trade.isclosed:
-            self.log(f'交易关闭: 毛利润={trade.pnl:.2f}, 净利润={trade.pnlcomm:.2f}')
+    # def notify_trade(self, trade):
+    #     if trade.isclosed:
+    #         self.log(f'交易关闭: 毛利润={trade.pnl:.2f}, 净利润={trade.pnlcomm:.2f}')
