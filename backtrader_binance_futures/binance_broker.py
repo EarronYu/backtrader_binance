@@ -1,5 +1,8 @@
 import datetime as dt
 import threading
+import logging
+import time
+import functools
 
 from collections import defaultdict, deque
 from math import copysign
@@ -9,8 +12,43 @@ from backtrader.order import Order, OrderBase
 from backtrader.position import Position
 from binance.enums import *
 
+# 配置日志
+logger = logging.getLogger('BinanceBroker')
+
+# 添加函数调试装饰器
+def debug_func(func_id):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            logger.debug(f"[BB-{func_id}] 开始执行: {func.__name__}")
+            start_time = time.time()
+            try:
+                result = func(*args, **kwargs)
+                elapsed = time.time() - start_time
+                logger.debug(f"[BB-{func_id}] 结束执行: {func.__name__}, 耗时: {elapsed:.4f}秒")
+                return result
+            except Exception as e:
+                elapsed = time.time() - start_time
+                logger.error(f"[BB-{func_id}] 执行出错: {func.__name__}, 耗时: {elapsed:.4f}秒, 错误: {str(e)}")
+                raise
+        return wrapper
+    return decorator
+
+# 添加一个不输出日志的调试装饰器版本
+def silent_debug_func(func_id):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                logger.error(f"[BB-{func_id}] 执行出错: {func.__name__}, 错误: {str(e)}")
+                raise
+        return wrapper
+    return decorator
 
 class BinanceOrder(OrderBase):
+    @debug_func(1)
     def __init__(self, owner, data, exectype, binance_order):
         self.owner = owner
         self.data = data
@@ -41,6 +79,7 @@ class BinanceBroker(BrokerBase):
         Order.StopLimit: ORDER_TYPE_STOP_LOSS_LIMIT,
     }
 
+    @debug_func(2)
     def __init__(self, store):
         super(BinanceBroker, self).__init__()
 
@@ -57,10 +96,12 @@ class BinanceBroker(BrokerBase):
         self._order_condition = threading.Condition()
         self._order_status = {}
 
+    @debug_func(3)
     def start(self):
         self.startingcash = self.cash = self.getcash()  # Стартовые и текущие свободные средства по счету. Подписка на позиции для портфеля/биржи
         self.startingvalue = self.value = self.getvalue()  # Стартовая и текущая стоимость позиций
 
+    @debug_func(4)
     def _execute_order(self, order, date, executed_size, executed_price, executed_value, executed_comm):
         # print("order data")
         # print(order.data)
@@ -75,25 +116,28 @@ class BinanceBroker(BrokerBase):
         pos = self.getposition(order.data, clone=False)
         pos.update(copysign(executed_size, order.size), executed_price)
 
+    @debug_func(5)
     def _handle_user_socket_message(self, msg):
         """https://binance-docs.github.io/apidocs/spot/en/#payload-order-update"""
-        # print(5555, msg)
-        #{'e': 'ORDER_TRADE_UPDATE', 'T': 1735320380465, 'E': 1735320380471, 'o': {'s': 'BTCUSDT', 'c': 'x-Cb7ytekJc78682727188d656ceb524', 'S': 'BUY', 'o': 'MARKET', 'f': 'GTC', 'q': '0.002', 'p': '0', 'ap': '0', 'sp': '0', 'x': 'NEW', 'X': 'NEW', 'i': 4073226536, 'l': '0', 'z': '0', 'L': '0', 'n': '0', 'N': 'USDT', 'T': 1735320380465, 't': 0, 'b': '0', 'a': '0', 'm': False, 'R': False, 'wt': 'CONTRACT_PRICE', 'ot': 'MARKET', 'ps': 'BOTH', 'cp': False, 'rp': '0', 'pP': False, 'si': 0, 'ss': 0, 'V': 'NONE', 'pm': 'NONE', 'gtd': 0}}
-
-        # {'e': 'ORDER_TRADE_UPDATE', 'T': 1735320870042, 'E': 1735320870048, 'o': {'s': 'BTCUSDT', 'c': 'x-Cb7ytekJ1953676356434b1f9c7e7a', 'S': 'BUY', 'o': 'MARKET', 'f': 'GTC', 'q': '0.002', 'p': '0', 'ap': '98010', 'sp': '0', 'x': 'TRADE', 'X': 'FILLED', 'i': 4073228429, 'l': '0.002', 'z': '0.002', 'L': '98010', 'n': '0.07840800', 'N': 'USDT', 'T': 1735320870042, 't': 293934075, 'b': '0', 'a': '0', 'm': False, 'R': False, 'wt': 'CONTRACT_PRICE', 'ot': 'MARKET', 'ps': 'BOTH', 'cp': False, 'rp': '0', 'pP': False, 'si': 0, 'ss': 0, 'V': 'NONE', 'pm': 'NONE', 'gtd': 0}}
-
         if msg['e'] == 'ORDER_TRADE_UPDATE':
-            # print(6666, msg)
             if msg['o']['s'] in self._store.symbols:
-                # print(7777, msg)
-                # print(77777, self.open_orders)
-                
-                with self._order_condition:
-                    self._order_condition.wait_for(lambda: msg['o']['i'] in self._order_status)
-                # print(77778, self.open_orders)
+                try:
+                    with self._order_condition:
+                        # 添加5秒超时机制
+                        success = self._order_condition.wait_for(
+                            lambda: msg['o']['i'] in self._order_status, 
+                            timeout=5
+                        )
+                        
+                        if not success:
+                            logger.warning(f"等待订单状态超时: {msg['o']['i']}，继续处理")
+                            # 即使未找到订单状态，也继续处理
+                            self._order_status[msg['o']['i']] = msg['o']['i']
+                except Exception as e:
+                    logger.error(f"处理订单状态时出错: {str(e)}")
+                    return
                 
                 for o in self.open_orders:
-                    # print(8888, o)
                     if o.binance_order['orderId'] == msg['o']['i']:
                         if msg['o']['X'] in [ORDER_STATUS_FILLED, ORDER_STATUS_PARTIALLY_FILLED]:
                             _dt = dt.datetime.fromtimestamp(int(msg['o']['T']) / 1000)
@@ -101,7 +145,7 @@ class BinanceBroker(BrokerBase):
                             executed_price = float(msg['o']['L'])
                             executed_value = float(executed_price) * float(executed_size)
                             executed_comm = float(msg['o']['n'])
-                            print(_dt, executed_size, executed_price)
+                            logger.info(f"订单执行: {_dt}, 数量: {executed_size}, 价格: {executed_price}")
                             self._execute_order(o, _dt, executed_size, executed_price, executed_value, executed_comm)
                         self._set_order_status(o, msg['o']['X'])
 
@@ -109,9 +153,10 @@ class BinanceBroker(BrokerBase):
                             self.open_orders.remove(o)
                         self.notify(o)
         elif msg['e'] == 'error':
-            raise msg
-        
+            logger.error(f"Websocket错误: {msg}")
+            
     
+    @debug_func(6)
     def _set_order_status(self, order, binance_order_status):
         if binance_order_status == ORDER_STATUS_CANCELED:
             order.cancel()
@@ -124,93 +169,121 @@ class BinanceBroker(BrokerBase):
         elif binance_order_status == ORDER_STATUS_REJECTED:
             order.reject()
 
+    @debug_func(7)
     def _submit(self, owner, data, side, exectype, size, price):
-        # print(1111, owner, data, side, exectype, size, price)
-        type = self._ORDER_TYPES.get(exectype, ORDER_TYPE_MARKET)
-        symbol = data._name
-        binance_order = self._store.create_order(symbol, side, type, size, price)
-        # print(22222, binance_order)
-
-        # print(3333, self._order_status)
-        order_id = binance_order['orderId']
+        logger.info(f"提交订单: {data._name} {side} {exectype} {size} {price}")
+        start_time = time.time()
         
+        try:
+            type = self._ORDER_TYPES.get(exectype, ORDER_TYPE_MARKET)
+            symbol = data._name
+            binance_order = self._store.create_order(symbol, side, type, size, price)
+            order_id = binance_order['orderId']
+            
+            # 设置订单状态让websocket回调能够找到
+            with self._order_condition:
+                self._order_status[order_id] = order_id
+                self._order_condition.notify_all()
+                
+            order = BinanceOrder(owner, data, exectype, binance_order)
+            if binance_order['status'] in [ORDER_STATUS_FILLED, ORDER_STATUS_PARTIALLY_FILLED]:
+                avg_price = 0.0
+                comm = 0.0
+                for f in binance_order['fills']:
+                    comm += float(f['commission'])
+                    avg_price += float(f['price'])
+                avg_price = self._store.format_price(symbol, avg_price/len(binance_order['fills']))
+                self._execute_order(
+                    order,
+                    dt.datetime.fromtimestamp(binance_order['transactTime'] / 1000),
+                    float(binance_order['executedQty']),
+                    float(avg_price),
+                    float(binance_order['cummulativeQuoteQty']),
+                    float(comm))
+            self._set_order_status(order, binance_order['status'])
+            if order.status == Order.Accepted:
+                self.open_orders.append(order)
+            self.notify(order)
+            
+            elapsed = time.time() - start_time
+            logger.info(f"订单提交完成, 耗时: {elapsed:.2f}秒, 订单ID: {order_id}")
+            return order
+        except Exception as e:
+            elapsed = time.time() - start_time
+            logger.error(f"订单提交失败, 耗时: {elapsed:.2f}秒, 错误: {str(e)}")
+            
+            # 确保即使出错也能解除线程阻塞
+            with self._order_condition:
+                self._order_condition.notify_all()
+            
+            # 创建一个拒绝的订单返回
+            order = OrderBase(owner=owner, data=data, 
+                           size=size if side == SIDE_BUY else -size,
+                           price=price, 
+                           exectype=exectype)
+            order.reject()
+            self.notify(order)
+            return order
 
-        # print(3333, self._order_status)
-        # binance_order = self._order_status[order_id]
-        order = BinanceOrder(owner, data, exectype, binance_order)
-        if binance_order['status'] in [ORDER_STATUS_FILLED, ORDER_STATUS_PARTIALLY_FILLED]:
-            avg_price =0.0
-            comm = 0.0
-            for f in binance_order['fills']:
-                comm += float(f['commission'])
-                avg_price += float(f['price'])
-            avg_price = self._store.format_price(symbol, avg_price/len(binance_order['fills']))
-            self._execute_order(
-                order,
-                dt.datetime.fromtimestamp(binance_order['transactTime'] / 1000),
-                float(binance_order['executedQty']),
-                float(avg_price),
-                float(binance_order['cummulativeQuoteQty']),
-                float(comm))
-        self._set_order_status(order, binance_order['status'])
-        if order.status == Order.Accepted:
-            self.open_orders.append(order)
-        self.notify(order)
-        
-
-        # this is for when we need to allow thread to move on
-        with self._order_condition:
-            self._order_status[order_id] = order_id
-            self._order_condition.notify_all()
-        # print(4444, "allow thread to move on")
-        #this is for when we need to wait for a condition to be filled somewhere else
-        # with self._order_condition:
-        #     self._order_condition.wait_for(lambda: order_id in self._order_status)
-        return order
-
+    @debug_func(8)
     def buy(self, owner, data, size, price=None, plimit=None,
             exectype=None, valid=None, tradeid=0, oco=None,
             trailamount=None, trailpercent=None,
             **kwargs):
         return self._submit(owner, data, SIDE_BUY, exectype, size, price)
 
+    @debug_func(9)
     def cancel(self, order):
-        order_id = order.binance_order['orderId']
-        symbol = order.binance_order['symbol']
-        self._store.cancel_order(symbol=symbol, order_id=order_id)
+        try:
+            order_id = order.binance_order['orderId']
+            symbol = order.binance_order['symbol']
+            logger.info(f"取消订单: {symbol} {order_id}")
+            self._store.cancel_order(symbol=symbol, order_id=order_id)
+        except Exception as e:
+            logger.error(f"取消订单失败: {str(e)}")
         
+    @debug_func(10)
     def close(self):
+        logger.info("关闭所有持仓...")
         self._store.close()
         
+    @debug_func(11)
     def format_price(self, value):
         return self._store.format_price(value)
 
+    @debug_func(12)
     def get_asset_balance(self, asset):
         return self._store.get_asset_balance(asset)
 
+    @silent_debug_func(13)
     def getcash(self):
         self.cash = self._store._cash
         return self.cash
 
+    @silent_debug_func(14)
     def get_notification(self):
         if not self.notifs:
             return None
 
         return self.notifs.popleft()
 
+    @silent_debug_func(15)
     def getposition(self, data, clone=True):
         pos = self.positions[data._dataname]
         if clone:
             pos = pos.clone()
         return pos
 
+    @silent_debug_func(16)
     def getvalue(self, datas=None):
         self.value = self._store._value
         return self.value
 
+    @silent_debug_func(17)
     def notify(self, order):
         self.notifs.append(order)
 
+    @debug_func(18)
     def sell(self, owner, data, size, price=None, plimit=None,
              exectype=None, valid=None, tradeid=0, oco=None,
              trailamount=None, trailpercent=None,

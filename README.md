@@ -193,3 +193,87 @@ The **Program** is distributed under the terms of the [MIT](https://choosealicen
 Please put a Star 🌟 for this code
 
 [![Star History Chart](https://api.star-history.com/svg?repos=WISEPLAT/backtrader_binance&type=Timeline)](https://star-history.com/#WISEPLAT/backtrader_binance&Timeline)
+
+# Backtrader 时区问题修复
+
+这个库提供了解决 Backtrader 常见时区问题的解决方案，特别是 `'Lines_LineSeries_DataSeries_OHLC_OHLCDateTime_Abst' object has no attribute '_tz'` 错误。
+
+## 问题描述
+
+在使用 Backtrader 进行回测时，尤其是与 PyFolio 分析器结合使用时，可能会遇到以下错误：
+
+```
+Trial encountered an error: 'Lines_LineSeries_DataSeries_OHLC_OHLCDateTime_Abst' object has no attribute '_tz'
+```
+
+这个错误主要是由于 Pandas 数据帧中带有时区信息的索引与 Backtrader 内部数据结构不兼容造成的。
+
+## 解决方案
+
+提供了两种解决方案：
+
+### 方法1：使用修复脚本 (推荐)
+
+1. 将 `fix_backtrader_tz_issue.py` 文件复制到您的项目目录中
+2. 在导入 backtrader 之前先导入此修复模块：
+
+```python
+import fix_backtrader_tz_issue  # 必须在导入backtrader之前
+import backtrader as bt
+```
+
+此脚本通过 Monkey patching 修改了 Backtrader 的关键类和方法，确保它们能够正确处理时区信息。
+
+### 方法2：修改数据加载和处理代码
+
+如果不想使用修复脚本，可以在代码中手动处理时区问题：
+
+1. 数据加载时移除时区信息：
+
+```python
+# 读取数据时确保没有时区信息
+df['datetime'] = pd.to_datetime(df['datetime'], utc=False)
+
+# 设置索引时确保没有时区信息
+df.set_index('datetime', inplace=True)
+if hasattr(df.index, 'tz') and df.index.tz is not None:
+    df.index = df.index.tz_localize(None)
+```
+
+2. 处理 PyFolio 返回的数据：
+
+```python
+portfolio_stats = strat.analyzers.pyfolio.get_pf_items()
+returns = portfolio_stats[0]
+if hasattr(returns.index, 'tz') and returns.index.tz is not None:
+    returns.index = returns.index.tz_localize(None)
+```
+
+## 验证修复
+
+提供了测试脚本 `test_fix.py` 来验证修复是否有效：
+
+```bash
+python test_fix.py
+```
+
+如果正常运行，说明修复成功。
+
+## 故障排除
+
+如果修复后仍然出现问题，请尝试以下方法：
+
+1. 确保在导入 backtrader 之前导入修复脚本
+2. 检查 pandas 和 backtrader 的版本兼容性
+3. 在数据处理过程中明确检查时区信息
+
+## 兼容性
+
+已在以下环境中测试:
+- Python 3.7+
+- Backtrader 1.9.74+
+- Pandas 1.1.0+
+
+## 贡献
+
+欢迎提交问题和改进建议。
