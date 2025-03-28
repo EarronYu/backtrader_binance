@@ -3,12 +3,12 @@ import math
 
 class MeanReverter(bt.Strategy):
     params = (
-        ('frequency', 22),          # 与Pine Script的22周期对齐
-        ('rsiFrequency', 36),       # RSI周期调整为36
-        ('buyZoneDistance', 3),     # 买入区域距离3%
-        ('avgDownATRSum', 5),       # ATR求和周期改为5
+        ('frequency', 26),          # 与Pine Script的22周期对齐
+        ('rsiFrequency', 4),       # RSI周期调整为36
+        ('buyZoneDistance', 8),     # 买入区域距离3%
+        ('avgDownATRSum', 8),       # ATR求和周期改为5
         ('useAbsoluteRSIBarrier', True),
-        ('barrierLevel', 60),       # 障碍水平调整为60
+        ('barrierLevel', 32),       # 障碍水平调整为60
         ('pyramiding', 3),          # 最大加仓次数3次
     )
 

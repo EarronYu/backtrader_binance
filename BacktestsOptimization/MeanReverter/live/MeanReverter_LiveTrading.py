@@ -160,20 +160,14 @@ class MeanReverterLive(bt.Strategy):
                 signal = ""
                 if isBuy:
                     signal = "enter_long"
-                    # 计算本次买入金额及下单数量
-                    if hasattr(self, 'initial_cash'):
-                        buy_amount = self.initial_cash * self.unit_ratio
-                    else:
-                        cash_available = self.broker.getcash()
-                        buy_amount = cash_available * self.unit_ratio
-                    
-                    size = buy_amount / current_price
+                    # 计算目标仓位比例
+                    target_percent = self.unit_ratio * (self.opentrades + 1)
                     
                     # 执行买入操作：对所有数据源下单
                     for d in self.datas:
                         d_ticker = d._name
-                        self.log(f"📈 执行买入: {d_ticker} 价格={current_price:.2f}, 数量={size:.6f}, 金额={buy_amount:.2f}, 仓位比例={self.unit_ratio:.2f}")
-                        self.buy(data=d, size=size, exectype=bt.Order.Market)
+                        self.log(f"📈 执行买入: {d_ticker} 价格={current_price:.2f}, 仓位比例={target_percent*100:.1f}%")
+                        self.order_target_percent(data=d, target=target_percent)
                         self.signal_types[d_ticker] = signal  # 记录信号类型
                     
                     self.opentrades += 1
@@ -186,7 +180,7 @@ class MeanReverterLive(bt.Strategy):
                         position = self.getposition(d)
                         if position.size > 0:
                             self.log(f"📉 执行平仓: {d_ticker}, 价格={current_price:.2f}, 数量={position.size:.6f}, RSI={rsi_val:.2f}")
-                            self.close(data=d, exectype=bt.Order.Market)
+                            self.order_target_percent(data=d, target=0.0)
                             self.signal_types[d_ticker] = signal  # 记录信号类型
                     
                     self.opentrades = 0
