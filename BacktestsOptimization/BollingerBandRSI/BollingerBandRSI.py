@@ -11,13 +11,16 @@ class BollingerBandRSI(bt.Strategy):
         ('rsi_lower', 30),  # RSI超卖水平
         ('long_tp', 0.1),  # 多头止盈百分比
         ('long_sl', 0.25),  # 多头止损百分比
-        ('pyramiding', 50),  # 最大加仓次数
+        ('pyramiding', 10),  # 最大加仓次数
     )
 
     def __init__(self):
         # 当前仓位的开盘价
         self.long_take_level = None
         self.long_stop_level = None
+        
+        # 记录加仓次数
+        self.add_count = 0
 
     def next(self):
         # 将LineBuffer数据转换为numpy数组，以便给TA-Lib处理
@@ -45,15 +48,18 @@ class BollingerBandRSI(bt.Strategy):
         if not self.position:
             if entry_long:
                 # 使用 order_target_percent 来开仓
-                self.order_target_percent(target=1.0)  # 将目标仓位设置为100%
+                self.order_target_percent(target=1/self.params.pyramiding)  # 第一次开仓占仓位的1/pyramiding
+                self.add_count += 1  # 记录加仓次数
         
         # 如果持有仓位，检查加仓信号
-        elif self.position.size > 0:  # 只有在多头持仓时才加仓
-            if entry_long and self.position.size < self.params.pyramiding:
-                # 使用 order_target_percent 来加仓
-                self.order_target_percent(target=self.position.size + (1.0 / self.params.pyramiding))  # 增加仓位比例
+        elif self.position.size > 0 and self.add_count < self.params.pyramiding:  # 只有在加仓次数未达到最大值时才加仓
+            if entry_long:
+                # 使用 order_target_percent 来加仓，目标仓位递增
+                self.order_target_percent(target=(self.add_count + 1) / self.params.pyramiding)  # 第n次加仓目标仓位为 n/pyramiding
+                self.add_count += 1  # 增加加仓次数
 
             # 检查平仓条件：退出多头
             if exit_long or self.data.close[0] >= self.long_take_level or self.data.close[0] <= self.long_stop_level:
                 # 使用 order_target_percent 来平仓
                 self.order_target_percent(target=0.0)  # 平掉所有仓位
+                self.add_count = 0  # 重置加仓次数

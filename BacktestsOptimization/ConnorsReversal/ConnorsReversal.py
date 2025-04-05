@@ -5,9 +5,6 @@ from collections import deque
 
 class ConnorsReversal(bt.Strategy):
     params = (
-        ("symbol", "1000PEPEUSDT"),
-        # 使用 backtrader 正确的时间周期常量（例如：bt.TimeFrame.Minutes）
-        ("timeframe", bt.TimeFrame.Minutes),
         ("lowest_point_bars", 16),
         ("rsi_length", 4),
         ("sell_barrier", 73),
