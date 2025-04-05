@@ -1,6 +1,6 @@
 import backtrader as bt
 import talib
-import math
+import numpy as np  # Import NumPy
 
 class CespanolSR(bt.Strategy):
     params = (
@@ -10,22 +10,20 @@ class CespanolSR(bt.Strategy):
         ('price_deviation', 0.01),   # Price deviation for safety orders
         ('safe_order_scale', 1),     # Safety order volume scale
         ('safe_order_step_scale', 1),# Safety order step scale
-        ('atr_period', 20),         # ATR计算周期
-        ('tp_atr', 3.0),            # 止盈ATR倍数
-        ('sl_atr', 2.0),            # 止损ATR倍数
+        ('take_profit', 0.1),        # Take Profit percentage
         ('initial_capital', 10000),  # Initial capital
+        ('max_dev', 0.0),            # Max deviation for safety orders
     )
 
     def __init__(self):
         self.sr_levels = []         # List to store support/resistance levels
         self.breaks = []            # Break count for each S/R level
         self.safety_orders = []     # Store safety orders for averaging
-        self.entry_price = None     # Store entry price
+        self.entry_price = None     # Store entry price (initialized to None)
         self.deal_counter = 0       # Track the number of deals
         self.latest_price = None    # Latest close price
-        
-        # 添加ATR指标
-        self.atr = bt.indicators.ATR(self.data, period=self.p.atr_period)
+        self.bar_entry = None       # Bar index for entry
+        self.safety_orders_level = None  # Last safety order price
 
     def next(self):
         # Get the current close price
@@ -37,68 +35,75 @@ class CespanolSR(bt.Strategy):
             self.sr_levels.append(pivot)
             self.breaks.append(0)
 
-        # Step 2: Check for level tests (Support/Resistance tests)
-        if not self.position:  # Only check for entry if no position exists
-            self.check_level_tests()
+        # Step 2: Evaluate entry conditions (Support/Resistance Test)
+        if not self.position:  # If there's no existing position, set entry price
+            self.entry_price = close  # Initialize entry price when opening a position
 
-        # Step 3: Manage exits based on stop loss and take profit
+        if self.position:  # If there's an existing position
+            if self.position.size > 0:  # Long position
+                # Check if take profit should trigger
+                self.check_take_profit()
+            elif self.position.size < 0:  # Short position
+                # Check for similar logic for short
+                self.check_take_profit()
+
+        # Step 3: Check for level tests (Support/Resistance tests)
+        self.check_level_tests()
+
+        # Step 4: Manage safety orders if position goes against us
+        self.manage_safety_orders(close)
+
+        # Step 5: Manage exits based on take profit
         if self.position and self.position.size > 0:
             self.check_exit_conditions()
 
     def calculate_pivot(self):
-        # 计算动态ATR阈值
-        high = self.data.high.get(size=self.p.pivot_length)
-        low = self.data.low.get(size=self.p.pivot_length) 
-        close = self.data.close.get(size=self.p.pivot_length)
-        
-        atr20 = talib.ATR(high, low, close, timeperiod=20)
-        fo = ((atr20[-1] / close[-1]) * 100) / 2  # 动态前冲/回撤阈值
-        md = fo * 30  # 动态最大距离
-        
-        # 计算枢轴点
-        pivot = (max(high) + min(low) + close[-1]) / 3
-        
-        # 检查是否为有效的S/R点
-        if self.is_valid_sr(pivot, fo, md):
-            return pivot
-        return None
+        # This is a placeholder logic for pivot point calculation
+        # Replace this with actual S/R logic from PineScript
+        high = np.array(self.data.high.get(size=self.p.pivot_length))  # Convert to NumPy array
+        low = np.array(self.data.low.get(size=self.p.pivot_length))    # Convert to NumPy array
+        close = np.array(self.data.close.get(size=self.p.pivot_length))  # Convert to NumPy array
 
-    def is_valid_sr(self, level, fo, md):
-        # 检查价格是否在有效范围内
-        current_price = self.data.close[0]
-        price_diff_pct = abs(level - current_price) / current_price * 100
-        
-        # 如果价格偏离太大,则无效
-        if price_diff_pct > md:
-            return False
-            
-        # 检查是否突破次数超过限制
-        for i, sr_level in enumerate(self.sr_levels):
-            if abs(level - sr_level) / sr_level * 100 < fo:
-                if self.breaks[i] >= self.p.max_breaks:
-                    return False
-        return True
+        # Calculate ATR for dynamic calculation of fo and md
+        atr20 = talib.ATR(high, low, close, timeperiod=20)
+
+        # Calculate fo and md based on ATR
+        fo = ((atr20[-1] / close[-1]) * 100) / 2  # Dynamic fo using ATR
+        md = fo * 30  # Dynamic max distance
+
+        pivot = (max(high) + min(low) + close[-1]) / 3  # Simple pivot formula
+        return pivot
 
     def check_level_tests(self):
-        # 只在支撑位做多
+        # Logic to check for support/resistance tests
         for level in self.sr_levels:
-            if self.data.close[0] > level:  # 价格在支撑位上方
-                if self.data.low[0] <= level:  # 测试支撑位
-                    self.entry_price = self.data.close[0]
-                    self.buy()  # 做多
+            if self.data.close[0] > level:  # Above support
+                self.buy()  # Long position
+            elif self.data.close[0] < level:  # Below resistance
+                self.sell()  # Short position
+
+    def manage_safety_orders(self, close):
+        # If there's an open position, manage safety orders
+        if not self.position and self.p.max_safe_orders > 0:
+            self.entry_price = close
+            self.safety_orders_level = self.entry_price
+            for i in range(1, self.p.max_safe_orders + 1):
+                so_price = self.safety_order_price(i)
+                self.buy(size=self.position.size * self.p.safe_order_scale)  # Adjust this as needed
+                self.safety_orders.append(so_price)
+
+    def safety_order_price(self, index):
+        # Calculate the price for safety orders based on price deviation
+        return self.entry_price * (1 - self.p.price_deviation * index)
 
     def check_exit_conditions(self):
-        if not self.position or not self.entry_price:
-            return
-            
-        current_atr = self.atr[0]
-        
-        # 基于ATR的止损价格
-        stop_loss_price = self.entry_price - (current_atr * self.p.sl_atr)
-        if self.data.close[0] <= stop_loss_price:
-            self.close()  # 触发止损
+        # Step 1: Check take profit
+        take_profit_price = self.entry_price * (1 + self.p.take_profit)
+        if self.position.size > 0 and self.data.close[0] >= take_profit_price:
+            self.close()  # Exit position on take profit
 
-        # 基于ATR的止盈价格
-        take_profit_price = self.entry_price + (current_atr * self.p.tp_atr)
-        if self.data.close[0] >= take_profit_price:
-            self.close()  # 触发止盈
+    def check_take_profit(self):
+        # Step 1: Check take profit
+        take_profit_price = self.entry_price * (1 + self.p.take_profit)
+        if self.position.size > 0 and self.data.close[0] >= take_profit_price:
+            self.close()  # Exit position on take profit
