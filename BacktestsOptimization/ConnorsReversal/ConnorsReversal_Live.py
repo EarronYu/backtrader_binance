@@ -20,7 +20,7 @@ class ConnorsReversal_Live(bt.Strategy):
         ("dca_parts", 8),
         ("max_lookback", 50),
         ("sma_period", 55),
-        ("only_buy_above_sma", False)
+        ("only_buy_above_sma", False),
 
         ('initial_cash', 1000),     # 初始资金，用于计算仓位
         # 3commas必传参数
