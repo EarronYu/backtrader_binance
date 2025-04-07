@@ -12,7 +12,7 @@ import traceback  # 用于详细异常信息
 import aiohttp  # 替换 requests 为 aiohttp
 import asyncio
 
-class ConnorsReversal(bt.Strategy):
+class ConnorsReversal_Live(bt.Strategy):
     params = (
         ("lowest_point_bars", 16),
         ("rsi_length", 4),
@@ -198,7 +198,7 @@ class ConnorsReversal(bt.Strategy):
                                 self.log(f"📈 执行买入: {d_ticker} 价格={current_price:.2f}, 仓位比例={target_percent*100:.1f}%")
                                 self.order_target_percent(data=d, target=target_percent)
                                 self.signal_types[d_ticker] = signal  # 记录信号类型
-                                
+
                 except Exception as e:
                     self.log(f"策略执行错误: {str(e)}", debug=True)
 
