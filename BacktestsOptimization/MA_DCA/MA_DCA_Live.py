@@ -5,7 +5,7 @@ import aiohttp
 import asyncio
 import datetime
 
-class MA_DCA(bt.Strategy):
+class MA_DCA_Live(bt.Strategy):
     # 在原有的策略参数基础上，添加与3commas和实盘相关的参数
     params = (
         ('ma_length', 47),          # MA长度
