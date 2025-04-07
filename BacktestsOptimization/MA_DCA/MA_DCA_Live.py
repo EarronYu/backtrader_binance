@@ -4,94 +4,226 @@ import threading
 import aiohttp
 import asyncio
 import datetime
-from MA_DCA import MA_DCA
 
-class MA_DCA_Live(MA_DCA):
-    # 参数设置，保留原有参数，同时添加实盘所需的参数
+class MA_DCA(bt.Strategy):
+    # 在原有的策略参数基础上，添加与3commas和实盘相关的参数
     params = (
         ('ma_length', 47),          # MA长度
-        ('initial_percent', 8),      # 首次订单的百分比
-        ('percent_step', 1),         # 额外订单的百分比步长
-        ('pyramiding', 3),           # 最大加仓次数
-        ('initial_cash', 1000),     # 初始资金
-        # 3commas必传参数
+        ('initial_percent', 8),     # 首次订单的百分比
+        ('percent_step', 1),        # 额外订单的百分比步长
+        ('pyramiding', 3),          # 最大加仓次数
+        
+        # 以下为新增的实盘/3commas对接参数
         ('commas_secret', None),    # 3commas webhook secret
         ('commas_max_lag', None),   # 3commas webhook max lag
         ('commas_exchange', None),  # TV exchange名称
         ('commas_ticker', None),    # TV ticker/instrument
         ('commas_bot_uuid', None),  # 3commas bot uuid
-        ('debug_mode', True),       # 调试模式
+        ('debug_mode', False),      # 调试模式开关（可在创建策略时覆盖）
+        ('initial_cash', 1000),     # 初始资金，可自行使用或扩展
     )
 
     def __init__(self):
-        # 调用父类的 __init__ 方法来初始化原策略
-        super().__init__()
+        """
+        初始化策略，包括父类初始化、检查3commas必需参数、设置异步事件循环等
+        """
+        super(MA_DCA, self).__init__()
 
-        # 检查 3commas 参数
-        if not all([self.p.commas_secret, self.p.commas_exchange, self.p.commas_ticker, self.p.commas_bot_uuid]):
-            raise ValueError("必须提供所有3commas参数！")
+        # 检查 3commas 必传参数
+        if not all([
+            self.p.commas_secret,
+            self.p.commas_exchange,
+            self.p.commas_ticker,
+            self.p.commas_bot_uuid
+        ]):
+            raise ValueError("必须提供所有3commas参数（secret/exchange/ticker/bot_uuid）！")
 
-        # 初始化一些特定的实盘交易设置
+        # 将参数debug_mode与原逻辑中的self.debug_mode关联
+        self.debug_mode = self.p.debug_mode
+        
+        # ========== 以下为您原策略内已有的指标及变量 ==========
+        self.ma = bt.indicators.SimpleMovingAverage(
+            self.data.close, period=self.params.ma_length
+        )
+        self.last_buy_price = None
+        self.last_sell_price = None
+        self.position_direction = None
+        self.opentrades = 0
+        self.unit_ratio = 1.0 / self.params.pyramiding
+        
+        # ========== 新增：异步事件循环与线程 ========== 
         self.loop = asyncio.new_event_loop()
         self.loop_thread = threading.Thread(target=self.start_loop, daemon=True)
         self.loop_thread.start()
-
+    
     def start_loop(self):
-        # 启动异步事件循环
+        """后台线程运行异步事件循环"""
         asyncio.set_event_loop(self.loop)
         self.loop.run_forever()
 
-    async def send_signal(self, signal, trigger_price):
-        """异步发送交易信号"""
-        try:
-            payload = {
-                'secret': self.p.commas_secret,
-                'max_lag': self.p.commas_max_lag,
-                'timestamp': datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                'trigger_price': str(trigger_price),
-                'tv_exchange': self.p.commas_exchange,
-                'tv_instrument': self.p.commas_ticker,
-                'action': signal,
-                'bot_uuid': self.p.commas_bot_uuid
-            }
-            
-            url = "http://localhost:5678/webhook/3commas"  # 3commas的Webhook地址
+    def log(self, txt, dt=None, debug=False):
+        """
+        复用您原策略的日志输出方法，仅在需要时才打印调试信息
+        """
+        if debug and not self.debug_mode:
+            return
+        dt = dt or self.data.datetime.date(0)
+        print(f'{dt.isoformat()} {txt}')
 
+    # ========== 以下为您【原样保留】的 next 方法核心逻辑 ========== 
+    def price_percent_diff(self, price1, price2):
+        """计算两个价格之间的绝对百分比差异"""
+        return abs(price1 - price2) / price2 * 100
+
+    def initial_entry_condition(self, price, ma, initial_percent):
+        """检查是否满足初始入场条件"""
+        return self.price_percent_diff(price, ma) >= initial_percent
+
+    def next(self):
+        # 获取当前价格数据
+        current_close = self.data.close[0]
+        current_low = self.data.low[0]
+        current_high = self.data.high[0]
+        current_ma = self.ma[0]
+        
+        # 检查平仓条件
+        if self.position.size > 0 and current_close >= current_ma:  # 多头平仓
+            self.order_target_percent(target=0.0, comment="exit_long")
+            self.last_buy_price = None
+            self.position_direction = None
+            self.opentrades = 0
+            self.log(f"平仓多头: 价格={current_close:.2f}", debug=True)
+            
+        elif self.position.size < 0 and current_close <= current_ma:  # 空头平仓
+            self.order_target_percent(target=0.0, comment="exit_short")
+            self.last_sell_price = None
+            self.position_direction = None
+            self.opentrades = 0
+            self.log(f"平仓空头: 价格={current_close:.2f}", debug=True)
+        
+        # 多头入场逻辑
+        if current_low < current_ma:
+            if self.last_buy_price is None:
+                if self.initial_entry_condition(current_low, current_ma, self.params.initial_percent):
+                    # 首次开仓
+                    self.opentrades = 1
+                    target_percent = self.unit_ratio * self.opentrades
+                    self.order_target_percent(target=target_percent, comment="enter_long")
+                    self.last_buy_price = current_low
+                    self.position_direction = 'long'
+                    self.log(f"首次买入: 价格={current_low:.2f}, 仓位比例={target_percent*100:.1f}%", debug=True)
+            else:
+                if (current_low < self.last_buy_price and 
+                    self.price_percent_diff(current_low, self.last_buy_price) >= self.params.percent_step and
+                    self.opentrades < self.params.pyramiding):
+                    # 加仓
+                    self.opentrades += 1
+                    target_percent = self.unit_ratio * self.opentrades
+                    self.order_target_percent(target=target_percent, comment="add_long")
+                    self.last_buy_price = current_low
+                    self.log(f"多头加仓: 价格={current_low:.2f}, 仓位比例={target_percent*100:.1f}%", debug=True)
+        
+        # 空头入场逻辑
+        if current_high > current_ma:
+            if self.last_sell_price is None:
+                if self.initial_entry_condition(current_high, current_ma, self.params.initial_percent):
+                    # 首次开仓
+                    self.opentrades = 1
+                    target_percent = self.unit_ratio * self.opentrades
+                    self.order_target_percent(target=-target_percent, comment="enter_short")
+                    self.last_sell_price = current_high
+                    self.position_direction = 'short'
+                    self.log(f"首次卖出: 价格={current_high:.2f}, 仓位比例={target_percent*100:.1f}%", debug=True)
+            else:
+                if (current_high > self.last_sell_price and 
+                    self.price_percent_diff(current_high, self.last_sell_price) >= self.params.percent_step and
+                    self.opentrades < self.params.pyramiding):
+                    # 加仓
+                    self.opentrades += 1
+                    target_percent = self.unit_ratio * self.opentrades
+                    self.order_target_percent(target=-target_percent, comment="add_short")
+                    self.last_sell_price = current_high
+                    self.log(f"空头加仓: 价格={current_high:.2f}, 仓位比例={target_percent*100:.1f}%", debug=True)
+
+    # ========== 异步信号发送部分 ========== 
+    async def _async_send_signal(self, action, trigger_price):
+        """
+        实际执行异步请求的函数
+        :param action: 字符串，如 'enter_long' / 'exit_long' 等
+        :param trigger_price: 触发价格
+        """
+        # 构建3commas所需Payload
+        payload = {
+            'secret': self.p.commas_secret,
+            'max_lag': self.p.commas_max_lag,
+            'timestamp': datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            'trigger_price': str(trigger_price),
+            'tv_exchange': self.p.commas_exchange,
+            'tv_instrument': self.p.commas_ticker,
+            'action': action,                  # 直接使用order的comment作为信号类型
+            'bot_uuid': self.p.commas_bot_uuid
+        }
+        url = "http://localhost:5678/webhook/3commas"  # 这里可替换成您实际的webhook地址
+
+        try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, json=payload) as response:
                     if response.status == 200:
-                        self.log(f"已发送 {signal} 信号, 价格: {trigger_price}")
+                        self.log(f"已发送 {action} 信号, 价格: {trigger_price}", debug=True)
                     else:
-                        self.log(f"发送信号失败，状态码: {response.status}")
+                        self.log(f"发送信号失败，状态码: {response.status}", debug=True)
             return True
         except Exception as e:
-            self.log(f"发送信号异常: {e}")
+            self.log(f"异步发送信号异常: {e}", debug=True)
             return False
 
-    def send_signal_async(self, signal, trigger_price):
-        """非阻塞地启动异步信号发送"""
-        asyncio.run_coroutine_threadsafe(self.send_signal(signal, trigger_price), self.loop)
+    def send_signal_async(self, action, trigger_price):
+        """
+        将异步发送请求提交到事件循环中，避免阻塞主线程
+        """
+        asyncio.run_coroutine_threadsafe(
+            self._async_send_signal(action, trigger_price),
+            self.loop
+        )
 
-    def next(self):
-        # 调用父类的 next 方法，保持原有的交易决策逻辑
-        super().next()
+    # ========== 订单与交易通知回调 ========== 
+    def notify_order(self, order):
+        """
+        当订单状态变动时回调此方法，可在此时向3commas等平台发送交易信号
+        """
+        if order.status in [bt.Order.Submitted, bt.Order.Accepted]:
+            # 提取订单备注(comment)并用作信号类型
+            comment = ''
+            # backtrader有时会把传入的 'comment' 存在 order.info dict，也可能在 order中
+            if hasattr(order, 'info') and isinstance(order.info, dict):
+                comment = order.info.get('comment', '')
+            if not comment:
+                # 如果上面没取到，就从 order.comment 中尝试获取
+                comment = getattr(order, 'comment', '')
 
-        # 在原有逻辑基础上，添加实盘交易信号的发送
-        current_price = self.data.close[0]
-        
-        # 判断买入信号
-        if self.position:  # 如果有持仓
-            if self.rsi[0] > self.rsi_slow[0]:
-                self.send_signal_async('sell', current_price)
-        else:  # 如果没有持仓
-            if self.rsi[0] < self.rsi_slow[0]:
-                self.send_signal_async('buy', current_price)
+            if comment:
+                # 获取下单价格（对于某些订单类型可能获取不到，做个安全处理）
+                trigger_price = order.created.price if hasattr(order, 'created') else 0
+                self.send_signal_async(comment, trigger_price)
 
+    def notify_trade(self, trade):
+        """
+        交易完成时（开仓、平仓）都会回调这里，打印或处理盈亏信息
+        """
+        if trade.isclosed:
+            self.log(f'已关闭仓位 {trade.getdataname()} 总盈亏={trade.pnl:.2f}, 净盈亏={trade.pnlcomm:.2f}', debug=True)
+        else:
+            if trade.justopened:
+                self.log(f'开仓 {trade.getdataname()} 大小={trade.size}, 价格={trade.price}', debug=True)
+
+    # ========== 策略停止时的资源清理 ========== 
     def stop(self):
-        """策略停止时清理资源"""
+        """
+        在策略终止（回测结束或实盘退出）时，关闭事件循环与后台线程
+        """
         try:
             self.loop.call_soon_threadsafe(self.loop.stop)
             self.loop_thread.join()
-            self.log("异步事件循环已关闭")
+            self.log("异步事件循环已关闭", debug=True)
         except Exception as e:
-            self.log(f"关闭事件循环异常: {e}")
+            self.log(f"关闭事件循环异常: {e}", debug=True)
