@@ -9,7 +9,7 @@ import traceback  # 用于详细异常信息
 import aiohttp  # 替换 requests 为 aiohttp
 import asyncio
 
-class MA_DCA(bt.Strategy):
+class MA_DCA_Live(bt.Strategy):
     params = (
         ('ma_length', 47),          # MA长度
         ('initial_percent', 8),      # 首次订单的百分比
