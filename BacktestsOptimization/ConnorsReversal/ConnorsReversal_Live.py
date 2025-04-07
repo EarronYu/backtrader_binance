@@ -166,13 +166,9 @@ class ConnorsReversal_Live(bt.Strategy):
                         # 执行平仓操作：对所有持仓数据源平仓
                         for d in self.datas:
                             d_ticker = d._name
-                            position = self.getposition(d)
-                            if position.size > 0:
-                                self.log(f"📉 执行平仓: {d_ticker}, 价格={current_price:.2f}, 数量={position.size:.6f}, RSI={rsi_val:.2f}")
-                                self.order_target_percent(data=d, target=0.0)
-                                self.signal_types[d_ticker] = signal  # 记录信号类型
-
-                        self.log(f"卖出信号 - RSI: {self.rsi[0]:.6f}，目标仓位: 0.00", debug=True)
+                            self.log(f"📉 执行平仓: {d_ticker}, 价格={current_price:.2f}")
+                            
+                            self.signal_types[d_ticker] = signal  # 记录信号类型
                         return
 
                     if is_lowest:
@@ -196,15 +192,17 @@ class ConnorsReversal_Live(bt.Strategy):
                             for d in self.datas:
                                 d_ticker = d._name
                                 self.log(f"📈 执行买入: {d_ticker} 价格={current_price:.2f}, 仓位比例={target_percent*100:.1f}%")
-                                self.order_target_percent(data=d, target=target_percent)
+                                
                                 self.signal_types[d_ticker] = signal  # 记录信号类型
 
-                except Exception as e:
-                    self.log(f"策略执行错误: {str(e)}", debug=True)
+                    else:
+                        self.log(f"📊 本次K线无交易操作", debug=True)
 
-                else:
-                    self.log(f"📊 本次K线无交易操作", debug=True)
-                    
+                except Exception as e:
+                    # 捕获并记录任何异常
+                    self.log(f"策略执行异常: {e}")
+                    self.log(f"异常详情: {traceback.format_exc()}")
+
             except Exception as e:
                 # 捕获并记录任何异常
                 self.log(f"策略执行异常: {e}")

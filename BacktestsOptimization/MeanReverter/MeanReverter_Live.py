@@ -106,6 +106,14 @@ class MeanReverterLive(bt.Strategy):
                 # 使用主数据进行策略判断
                 current_price = data.close[0]
                 
+                # 检查是否有持仓
+                has_position = any(self.getposition(d).size > 0 for d in self.datas)
+                if has_position:
+                    for d in self.datas:
+                        pos = self.getposition(d)
+                        if pos.size > 0:
+                            self.log(f"当前持仓: {d._name} 数量={pos.size:.6f} 价格={pos.price:.2f}")
+
                 # 确保指标已经准备好
                 if not (len(self.rsi) > 0 and len(self.rsi_slow) > 0 and len(self.atr) > 0):
                     self.log("指标数据尚未准备好，跳过本次交易信号判断")
@@ -117,13 +125,7 @@ class MeanReverterLive(bt.Strategy):
                 # 输出指标值
                 self.log(f"技术指标: RSI={rsi_val:.2f}, 慢速RSI={rsi_slow_val:.2f}, ATR={self.atr[0]:.4f}")
                 
-                # 检查是否有持仓
-                has_position = any(self.getposition(d).size > 0 for d in self.datas)
-                if has_position:
-                    for d in self.datas:
-                        pos = self.getposition(d)
-                        if pos.size > 0:
-                            self.log(f"当前持仓: {d._name} 数量={pos.size:.6f} 价格={pos.price:.2f}")
+
 
                 # 计算ATR总和
                 atr_sum = sum(self.atr.get(size=self.p.avgDownATRSum)) if len(self.atr) >= self.p.avgDownATRSum else 0
