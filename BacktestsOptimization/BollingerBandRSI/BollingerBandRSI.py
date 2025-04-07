@@ -72,7 +72,7 @@ class BollingerBandRSI(bt.Strategy):
             
             # 如果价格触及到止盈价或止损价，也可以选择平仓
             if current_close >= self.long_take_level or current_close <= self.long_stop_level:
-                self.log(f"多头止盈止损平仓: 价格={current_close:.2f}")
+                # self.log(f"多头止盈止损平仓: 价格={current_close:.2f}")
                 self.order_target_percent(target=0.0, comment="exit_long")
                 self.last_buy_price = None
                 self.position_direction = None
@@ -83,7 +83,7 @@ class BollingerBandRSI(bt.Strategy):
             self.short_take_level = self.position.price * (1 - self.params.long_tp)  # 空头获利在下方
             self.short_stop_level = self.position.price * (1 + self.params.long_sl)  # 空头止损在上方
             if current_close <= self.short_take_level or current_close >= self.short_stop_level:
-                self.log(f"空头止盈止损平仓: 价格={current_close:.2f}")
+                # self.log(f"空头止盈止损平仓: 价格={current_close:.2f}")
                 self.order_target_percent(target=0.0, comment="exit_short")
                 self.last_sell_price = None
                 self.position_direction = None
@@ -92,14 +92,14 @@ class BollingerBandRSI(bt.Strategy):
         # RSI + Bollinger 平仓条件：例如“价格回到中轨”或“RSI 回到 50 上下”，你可以自行修改
         # 这里示例：如果是多头持仓，当价格 >= BB中轨，就平多头。
         if self.position.size > 0 and current_close >= bb_basis:
-            self.log(f"平仓多头: 价格={current_close:.2f}")
+            # self.log(f"平仓多头: 价格={current_close:.2f}")
             self.order_target_percent(target=0.0, comment="exit_long")
             self.last_buy_price = None
             self.position_direction = None
             self.add_count = 0
 
         if self.position.size < 0 and current_close <= bb_basis:
-            self.log(f"平仓空头: 价格={current_close:.2f}")
+            # self.log(f"平仓空头: 价格={current_close:.2f}")
             self.order_target_percent(target=0.0, comment="exit_short")
             self.last_sell_price = None
             self.position_direction = None
