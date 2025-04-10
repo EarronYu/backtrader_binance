@@ -1,8 +1,8 @@
 import backtrader as bt
 import backtrader.indicators as btind
-import math
 from collections import deque
 
+import math
 import time
 import threading  # 添加线程支持
 import concurrent.futures  # 添加线程池支持

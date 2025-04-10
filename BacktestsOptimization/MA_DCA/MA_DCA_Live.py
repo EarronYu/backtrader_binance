@@ -131,6 +131,7 @@ class MA_DCA_Live(bt.Strategy):
                 current_high = self.data.high[0]
                 current_ma = self.ma[0]
                 
+                # 计算信号前重置
                 signal = ""
 
                 # 检查平仓条件
@@ -139,12 +140,12 @@ class MA_DCA_Live(bt.Strategy):
                     self.last_buy_price = None
                     self.position_direction = None
                     self.opentrades = 0
+
                     signal = "exit_long"
                     # 执行平仓操作：对所有持仓数据源平仓
                     for d in self.datas:
                         d_ticker = d._name
                         self.log(f"📉 执行平仓: {d_ticker}, 价格={current_price:.2f}")
-                        
                         self.signal_types[d_ticker] = signal  # 记录信号类型
                     
                 elif self.position.size < 0 and current_close <= current_ma:  # 空头平仓
@@ -152,12 +153,12 @@ class MA_DCA_Live(bt.Strategy):
                     self.last_sell_price = None
                     self.position_direction = None
                     self.opentrades = 0
+                    
                     signal = "exit_short"
                     # 执行平仓操作：对所有持仓数据源平仓
                     for d in self.datas:
                         d_ticker = d._name
                         self.log(f"📈 执行平仓: {d_ticker}, 价格={current_price:.2f}")
-                        
                         self.signal_types[d_ticker] = signal  # 记录信号类型
                 
                 # 多头入场逻辑
