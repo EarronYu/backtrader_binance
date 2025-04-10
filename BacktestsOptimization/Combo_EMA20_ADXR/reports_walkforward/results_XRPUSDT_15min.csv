@@ -1,0 +1,2 @@
+Symbol,Timeframe,Window,IS Start,IS End,OOS Start,OOS End,Return (%),Trades,Win Rate (%),Used Previous Params,param_ema_length,param_adx_length,param_adxr_offset,param_signal1,param_signal2,param_reverse
+XRPUSDT,15min,1,2023-10-09,2024-01-01,2024-01-01,2024-01-15,-3.8383460419999405,13,23.076923076923077,False,11,24,36,17,46,False

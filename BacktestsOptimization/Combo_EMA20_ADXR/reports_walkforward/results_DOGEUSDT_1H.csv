@@ -1,0 +1,2 @@
+Symbol,Timeframe,Window,IS Start,IS End,OOS Start,OOS End,Return (%),Trades,Win Rate (%),Used Previous Params,param_ema_length,param_adx_length,param_adxr_offset,param_signal1,param_signal2,param_reverse
+DOGEUSDT,1H,1,2023-10-09,2024-01-01,2024-01-01,2024-01-15,-1.1824949827999975,2,0.0,False,5,54,7,21,50,True
