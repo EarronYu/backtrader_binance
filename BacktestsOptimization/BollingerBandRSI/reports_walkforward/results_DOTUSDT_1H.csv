@@ -1,0 +1,2 @@
+Symbol,Timeframe,Window,IS Start,IS End,OOS Start,OOS End,Return (%),Trades,Win Rate (%),OOS Valid,param_len_rsi,param_bb_len,param_bb_mult,param_rsi_upper,param_rsi_lower,param_long_tp,param_long_sl,param_pyramiding,param_initial_percent,param_percent_step
+DOTUSDT,1H,1,2023-10-09,2024-01-01,2024-01-01,2024-01-15,1.8258892199999766,3,66.66666666666666,True,24,32,1.5,60,35,0.2,0.1,2,5,1

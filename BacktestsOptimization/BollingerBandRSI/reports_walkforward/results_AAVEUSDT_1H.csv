@@ -1,0 +1,4 @@
+Symbol,Timeframe,Window,IS Start,IS End,OOS Start,OOS End,Return (%),Trades,Win Rate (%),OOS Valid,param_len_rsi,param_bb_len,param_bb_mult,param_rsi_upper,param_rsi_lower,param_long_tp,param_long_sl,param_pyramiding,param_initial_percent,param_percent_step
+AAVEUSDT,1H,1,2023-10-09,2024-01-01,2024-01-01,2024-01-15,4.683199399999971,4,50.0,True,16,24,1.5,60,25,0.05,0.25,3,4,2
+AAVEUSDT,1H,2,2023-10-23,2024-01-15,2024-01-15,2024-01-29,0.3051143200000217,1,100.0,True,8,36,1.5,70,25,0.05,0.1,8,4,3
+AAVEUSDT,1H,3,2023-11-06,2024-01-29,2024-01-29,2024-02-12,0.0,0,0,True,18,36,1.5,65,35,0.15,0.3,7,4,5

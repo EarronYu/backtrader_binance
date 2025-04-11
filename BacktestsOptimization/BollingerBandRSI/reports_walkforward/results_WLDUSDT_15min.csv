@@ -1,0 +1,2 @@
+Symbol,Timeframe,Window,IS Start,IS End,OOS Start,OOS End,Return (%),Trades,Win Rate (%),OOS Valid,param_len_rsi,param_bb_len,param_bb_mult,param_rsi_upper,param_rsi_lower,param_long_tp,param_long_sl,param_pyramiding,param_initial_percent,param_percent_step
+WLDUSDT,15min,1,2023-10-09,2024-01-01,2024-01-01,2024-01-15,4.274223905600039,5,80.0,True,8,22,1.5,80,35,0.1,0.1,2,4,3
